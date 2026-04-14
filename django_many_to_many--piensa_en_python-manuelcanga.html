@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relaciones Many-to-Many en Django - Piensa en Django (@manuelcanga)</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --surface2:  #1e2733;
+    --border:    #2a3441;
+    --accent:    #f78166;
+    --accent2:   #79c0ff;
+    --accent3:   #56d364;
+    --accent4:   #e3b341;
+    --text:      #e6edf3;
+    --text-muted:#8b949e;
+    --code-bg:   #0d1117;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Lora', Georgia, serif;
+    font-size: 17px;
+    line-height: 1.8;
+    overflow-x: hidden;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    padding: 80px 40px 60px;
+    text-align: center;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 70% 60% at 50% 0%, rgba(121,192,255,.13) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 80% 80%, rgba(247,129,102,.08) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .hero-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    border: 1px solid rgba(121,192,255,.3);
+    border-radius: 40px;
+    padding: 5px 18px;
+    margin-bottom: 28px;
+    background: rgba(121,192,255,.06);
+  }
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.2rem, 5vw, 3.8rem);
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -.02em;
+    margin-bottom: 20px;
+  }
+  .hero h1 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+  .hero-sub {
+    font-size: 1.05rem;
+    color: var(--text-muted);
+    max-width: 560px;
+    margin: 0 auto 36px;
+    font-style: italic;
+  }
+  .hero-meta {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .badge span { color: var(--accent3); }
+
+  /* ── LAYOUT ── */
+  .page-grid {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 0;
+  }
+  @media (max-width: 860px) {
+    .page-grid { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+    padding: 32px 20px;
+  }
+  .sidebar-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+  .sidebar nav a {
+    display: block;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 7px 10px;
+    border-radius: 6px;
+    border-left: 2px solid transparent;
+    margin-bottom: 2px;
+    transition: all .2s;
+  }
+  .sidebar nav a:hover,
+  .sidebar nav a.active {
+    color: var(--accent2);
+    border-left-color: var(--accent2);
+    background: rgba(121,192,255,.07);
+  }
+  .sidebar nav a.sub {
+    font-size: 12px;
+    padding-left: 22px;
+    font-weight: 400;
+    font-family: 'Lora', serif;
+  }
+
+  /* ── MAIN CONTENT ── */
+  .content {
+    padding: 48px 56px 80px;
+    max-width: 820px;
+  }
+  @media (max-width: 700px) { .content { padding: 28px 20px 60px; } }
+
+  /* ── SECTIONS ── */
+  .section {
+    margin-bottom: 64px;
+    opacity: 0;
+    transform: translateY(24px);
+    animation: fadeUp .6s forwards;
+  }
+  .section:nth-child(1)  { animation-delay: .05s }
+  .section:nth-child(2)  { animation-delay: .12s }
+  .section:nth-child(3)  { animation-delay: .19s }
+  .section:nth-child(4)  { animation-delay: .26s }
+  .section:nth-child(5)  { animation-delay: .33s }
+  .section:nth-child(6)  { animation-delay: .40s }
+  .section:nth-child(7)  { animation-delay: .47s }
+  .section:nth-child(8)  { animation-delay: .54s }
+  .section:nth-child(9)  { animation-delay: .61s }
+  .section:nth-child(10) { animation-delay: .68s }
+  .section:nth-child(11) { animation-delay: .75s }
+
+  @keyframes fadeUp {
+    to { opacity: 1; transform: none; }
+  }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+
+  h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.9rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 20px;
+    color: var(--text);
+    scroll-margin-top: 32px;
+  }
+  h2 .num {
+    color: var(--accent);
+    font-size: 1rem;
+    vertical-align: super;
+    margin-right: 4px;
+  }
+
+  h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--accent2);
+    margin: 32px 0 12px;
+    scroll-margin-top: 32px;
+  }
+
+  p { margin-bottom: 16px; color: var(--text); }
+  p:last-child { margin-bottom: 0; }
+
+  strong { color: var(--accent4); font-weight: 600; }
+  em { color: var(--accent2); font-style: italic; }
+
+  /* ── CALLOUT BOXES ── */
+  .callout {
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin: 24px 0;
+    border-left: 3px solid;
+    font-size: .95rem;
+  }
+  .callout.info {
+    background: rgba(121,192,255,.07);
+    border-color: var(--accent2);
+  }
+  .callout.info::before { content: '💡 '; }
+  .callout.tip {
+    background: rgba(86,211,100,.07);
+    border-color: var(--accent3);
+  }
+  .callout.tip::before { content: '✅ '; }
+  .callout.warn {
+    background: rgba(227,179,65,.07);
+    border-color: var(--accent4);
+  }
+  .callout.warn::before { content: '⚠️ '; }
+  .callout.note {
+    background: rgba(247,129,102,.07);
+    border-color: var(--accent);
+  }
+  .callout.note::before { content: '📌 '; }
+  .callout p { margin: 0; }
+
+  /* ── CODE BLOCKS ── */
+  .code-wrap {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin: 20px 0;
+    overflow: hidden;
+    font-size: .83rem;
+  }
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .code-lang {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent2);
+  }
+  .code-dots {
+    display: flex;
+    gap: 5px;
+  }
+  .code-dots i {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    display: block;
+  }
+  .code-dots i:nth-child(1) { background: #ff5f57; }
+  .code-dots i:nth-child(2) { background: #febc2e; }
+  .code-dots i:nth-child(3) { background: #28c840; }
+  .code-file {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  pre {
+    padding: 20px 22px;
+    overflow-x: auto;
+    line-height: 1.65;
+  }
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .82rem;
+  }
+  /* syntax colors */
+  .kw  { color: #ff7b72; }   /* keyword */
+  .cl  { color: #79c0ff; }   /* class/type */
+  .fn  { color: #d2a8ff; }   /* function/method */
+  .st  { color: #a5d6ff; }   /* string */
+  .cm  { color: #8b949e; font-style: italic; } /* comment */
+  .nb  { color: #56d364; }   /* number / built-in */
+  .dc  { color: #e3b341; }   /* decorator */
+  .op  { color: #f78166; }   /* operator/punctuation accent */
+  .pl  { color: #e6edf3; }   /* plain */
+
+  /* inline code */
+  p code, li code, td code {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: .8rem;
+    color: var(--accent2);
+  }
+
+  /* ── DIAGRAM / VISUAL ── */
+  .diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin: 24px 0;
+    text-align: center;
+    overflow: hidden;
+  }
+  .diagram-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+  }
+  .entity-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    flex-wrap: wrap;
+  }
+  .entity {
+    background: var(--surface2);
+    border: 2px solid var(--accent2);
+    border-radius: 10px;
+    padding: 14px 22px;
+    font-family: 'Syne', sans-serif;
+    font-size: .9rem;
+    font-weight: 700;
+    color: var(--accent2);
+    white-space: nowrap;
+  }
+  .entity.pivot {
+    border-color: var(--accent4);
+    color: var(--accent4);
+    font-size: .82rem;
+  }
+  .arrow {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    font-size: 1.5rem;
+    margin: 0 8px;
+    flex-shrink: 0;
+  }
+  .cardinality {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .7rem;
+    color: var(--text-muted);
+    margin: 0 4px;
+  }
+
+  /* ── TABLE ── */
+  .table-wrap {
+    overflow-x: auto;
+    margin: 20px 0;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .88rem;
+  }
+  thead {
+    background: var(--surface);
+  }
+  th {
+    font-family: 'Syne', sans-serif;
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 11px 16px;
+    border-bottom: 1px solid rgba(42,52,65,.6);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+
+  /* ── STEPS ── */
+  .steps { counter-reset: step; margin: 24px 0; }
+  .step {
+    display: grid;
+    grid-template-columns: 42px 1fr;
+    gap: 16px;
+    margin-bottom: 28px;
+    align-items: start;
+  }
+  .step-num {
+    counter-increment: step;
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: .95rem;
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .step-body h4 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .step-body p { font-size: .93rem; margin: 0; }
+
+  /* ── QUIZ ── */
+  .quiz {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin: 32px 0;
+  }
+  .quiz-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .quiz-q {
+    margin-bottom: 16px;
+  }
+  .quiz-q p {
+    font-size: .95rem;
+    margin-bottom: 10px;
+  }
+  .quiz-q label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: .9rem;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background .15s;
+    margin-bottom: 4px;
+  }
+  .quiz-q label:hover { background: var(--surface2); }
+  .quiz-q input[type=radio] { accent-color: var(--accent2); }
+  .quiz-btn {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: .85rem;
+    letter-spacing: .05em;
+    background: var(--accent);
+    color: #0d1117;
+    border: none;
+    border-radius: 7px;
+    padding: 10px 22px;
+    cursor: pointer;
+    margin-top: 12px;
+    transition: opacity .2s;
+  }
+  .quiz-btn:hover { opacity: .85; }
+  .quiz-result {
+    margin-top: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .88rem;
+    padding: 10px 16px;
+    border-radius: 6px;
+    display: none;
+  }
+  .quiz-result.ok  { background: rgba(86,211,100,.12); color: var(--accent3); }
+  .quiz-result.err { background: rgba(247,129,102,.12); color: var(--accent); }
+
+  /* ── SUMMARY CARD ── */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .sum-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    transition: border-color .2s;
+  }
+  .sum-card:hover { border-color: var(--accent2); }
+  .sum-card-icon { font-size: 1.6rem; margin-bottom: 10px; }
+  .sum-card h4 {
+    font-family: 'Syne', sans-serif;
+    font-size: .9rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--accent2);
+  }
+  .sum-card p { font-size: .82rem; color: var(--text-muted); margin: 0; }
+
+  /* ── DIVIDER ── */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 48px 0;
+  }
+
+  /* ── PROGRESS BAR ── */
+  #progress-bar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    z-index: 100;
+    transition: width .1s linear;
+    width: 0%;
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent2); }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center;
+    padding: 40px 20px;
+    border-top: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .78rem;
+    color: var(--text-muted);
+  }
+  footer span { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-tag">Django ORM · Relaciones</div>
+  <h1>Relaciones<br><em>Many-to-Many</em><br>en Django</h1>
+  <p class="hero-sub">Una guía completa, clara y práctica para entender cómo conectar datos entre sí de forma profesional.</p>
+  <div class="hero-meta">
+    <span class="badge"><span>📚</span> Nivel: Iniciación</span>
+    <span class="badge"><span>🕐</span> Lectura ~25 min</span>
+    <span class="badge"><span>🐍</span> Python + Django</span>
+    <span class="badge"><span>✅</span> Con ejercicios</span>
+  </div>
+</header>
+
+<div class="page-grid">
+
+  <!-- SIDEBAR NAV -->
+  <aside class="sidebar">
+    <p class="sidebar-title">Contenido</p>
+    <nav>
+      <a href="#intro">¿Qué es M2M?</a>
+      <a href="#analogia">La analogía</a>
+      <a href="#tipos" class="sub">Tipos de relaciones</a>
+      <a href="#primer-ejemplo">Tu primer M2M</a>
+      <a href="#migraciones" class="sub">Migraciones</a>
+      <a href="#tabla-pivot" class="sub">Tabla pivot</a>
+      <a href="#operaciones">Operaciones básicas</a>
+      <a href="#add" class="sub">add / remove / set / clear</a>
+      <a href="#consultas">Consultas avanzadas</a>
+      <a href="#through">Tabla intermedia</a>
+      <a href="#through-ops" class="sub">Operaciones con through</a>
+      <a href="#admin">En el Admin</a>
+      <a href="#buenas-practicas">Buenas prácticas</a>
+      <a href="#quiz">Mini Quiz</a>
+      <a href="#resumen">Resumen</a>
+    </nav>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="content">
+
+    <!-- SECCIÓN 1 -->
+    <section class="section" id="intro">
+      <div class="section-label">Sección 01</div>
+      <h2><span class="num">#</span>¿Qué es una relación Many-to-Many?</h2>
+
+      <p>En una base de datos, las tablas raramente viven solas. Casi siempre están <strong>relacionadas entre sí</strong>. Existen tres tipos principales de relaciones:</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Tipo</th><th>Significado</th><th>Ejemplo</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>One-to-One</code></td>
+              <td>Un registro se relaciona con <em>exactamente uno</em> del otro</td>
+              <td>Una persona ↔ un DNI</td>
+            </tr>
+            <tr>
+              <td><code>One-to-Many</code></td>
+              <td>Un registro se relaciona con <em>muchos</em> del otro lado</td>
+              <td>Un autor → muchos libros</td>
+            </tr>
+            <tr>
+              <td><code>Many-to-Many</code></td>
+              <td><em>Muchos</em> se relacionan con <em>muchos</em></td>
+              <td>Estudiantes ↔ Cursos</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Una relación <strong>Many-to-Many (M2M)</strong> ocurre cuando <em>múltiples registros de una tabla</em> pueden estar relacionados con <em>múltiples registros de otra tabla</em>, y viceversa.</p>
+
+      <div class="callout info">
+        <p>En Django, las relaciones Many-to-Many se definen con el campo <code>ManyToManyField</code> en los modelos. Django se encarga <em>automáticamente</em> de crear la tabla intermedia necesaria en la base de datos.</p>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 2 -->
+    <section class="section" id="analogia">
+      <div class="section-label">Sección 02</div>
+      <h2><span class="num">#</span>La analogía del mundo real</h2>
+
+      <p>Antes de ver código, pensemos en la vida real. Imagina una <strong>universidad</strong>:</p>
+
+      <ul style="margin: 16px 0 16px 24px; line-height: 2.2;">
+        <li>Un <strong>estudiante</strong> puede estar matriculado en <em>varios cursos</em> (Matemáticas, Historia, Programación…)</li>
+        <li>Un <strong>curso</strong> puede tener <em>varios estudiantes</em> matriculados.</li>
+      </ul>
+
+      <p>Esto es exactamente una relación Many-to-Many: muchos estudiantes con muchos cursos.</p>
+
+      <div class="diagram">
+        <div class="diagram-title">Diagrama de Relación · Estudiantes ↔ Cursos</div>
+        <div class="entity-row">
+          <div class="entity">👤 Estudiante</div>
+          <div class="arrow">⟷</div>
+          <div class="entity pivot">📋 estudiante_curso<br><small style="font-weight:400;font-size:.7rem">tabla intermedia</small></div>
+          <div class="arrow">⟷</div>
+          <div class="entity">📗 Curso</div>
+        </div>
+        <div style="display:flex;justify-content:center;gap:80px;margin-top:18px;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text-muted);">
+          <span>id, nombre, email…</span>
+          <span>estudiante_id, curso_id</span>
+          <span>id, nombre, créditos…</span>
+        </div>
+      </div>
+
+      <p>Otro ejemplo muy común: <strong>Artículos y Etiquetas</strong> en un blog. Un artículo puede tener varias etiquetas (Python, Django, Web…) y una etiqueta puede pertenecer a varios artículos.</p>
+
+      <div id="tipos"></div>
+      <div class="callout note">
+        <p>La clave para identificar una relación M2M es hacerse las preguntas: <em>"¿Puede un X tener muchos Y?"</em> y <em>"¿Puede un Y tener muchos X?"</em>. Si ambas respuestas son SÍ, es Many-to-Many.</p>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 3 -->
+    <section class="section" id="primer-ejemplo">
+      <div class="section-label">Sección 03</div>
+      <h2><span class="num">#</span>Tu primer Many-to-Many en Django</h2>
+
+      <p>Vamos a construir el modelo de la universidad paso a paso. Para ello, creamos una aplicación Django llamada <code>academia</code>.</p>
+
+      <h3>Definir los modelos</h3>
+      <p>El campo clave es <code>ManyToManyField</code>. Solo necesitas ponerlo en <em>uno</em> de los dos modelos (Django crea la relación en ambas direcciones automáticamente).</p>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">academia/models.py</span>
+          <span class="code-lang">Python · Django</span>
+        </div>
+        <pre><code><span class="kw">from</span> <span class="pl">django.db</span> <span class="kw">import</span> <span class="pl">models</span>
+
+
+<span class="kw">class</span> <span class="cl">Curso</span><span class="pl">(</span><span class="cl">models.Model</span><span class="pl">):</span>
+    <span class="pl">nombre</span>   <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">CharField</span><span class="pl">(max_length</span><span class="op">=</span><span class="nb">200</span><span class="pl">)</span>
+    <span class="pl">creditos</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">PositiveIntegerField</span><span class="pl">(default</span><span class="op">=</span><span class="nb">6</span><span class="pl">)</span>
+
+    <span class="kw">def</span> <span class="fn">__str__</span><span class="pl">(self):</span>
+        <span class="kw">return</span> <span class="pl">self</span><span class="op">.</span><span class="pl">nombre</span>
+
+
+<span class="kw">class</span> <span class="cl">Estudiante</span><span class="pl">(</span><span class="cl">models.Model</span><span class="pl">):</span>
+    <span class="pl">nombre</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">CharField</span><span class="pl">(max_length</span><span class="op">=</span><span class="nb">200</span><span class="pl">)</span>
+    <span class="pl">email</span>  <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">EmailField</span><span class="pl">(unique</span><span class="op">=</span><span class="kw">True</span><span class="pl">)</span>
+
+    <span class="cm"># 👇 Aquí está la magia: ManyToManyField</span>
+    <span class="pl">cursos</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">ManyToManyField</span><span class="pl">(</span>
+        <span class="cl">Curso</span><span class="pl">,</span>
+        <span class="pl">blank</span><span class="op">=</span><span class="kw">True</span><span class="pl">,</span>          <span class="cm"># permite que un estudiante no tenga cursos</span>
+        <span class="pl">related_name</span><span class="op">=</span><span class="st">'estudiantes'</span>  <span class="cm"># acceso inverso desde Curso</span>
+    <span class="pl">)</span>
+
+    <span class="kw">def</span> <span class="fn">__str__</span><span class="pl">(self):</span>
+        <span class="kw">return</span> <span class="pl">self</span><span class="op">.</span><span class="pl">nombre</span></code></pre>
+      </div>
+
+      <div id="migraciones"></div>
+      <div class="callout tip">
+        <p><strong>related_name</strong> es muy útil: te permite consultar desde <code>Curso</code> quiénes son sus estudiantes con <code>curso.estudiantes.all()</code>. Sin él, Django usaría <code>curso.estudiante_set.all()</code>.</p>
+      </div>
+
+      <h3 id="migraciones-title">Crear y aplicar las migraciones</h3>
+      <p>Ahora le decimos a Django que cree las tablas en la base de datos:</p>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">Terminal / Bash</span>
+          <span class="code-lang">Shell</span>
+        </div>
+        <pre><code><span class="cm"># 1. Generamos el fichero de migración</span>
+<span class="nb">python</span> manage.py makemigrations academia
+
+<span class="cm"># 2. Aplicamos la migración a la base de datos</span>
+<span class="nb">python</span> manage.py migrate</code></pre>
+      </div>
+
+      <div id="tabla-pivot"></div>
+
+      <h3 id="tabla-pivot-title">¿Qué tablas crea Django?</h3>
+      <p>Django crea <strong>tres tablas</strong> en la base de datos:</p>
+
+      <div class="diagram">
+        <div class="diagram-title">Tablas generadas por Django</div>
+        <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px 20px;min-width:160px;">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--accent2);margin-bottom:10px;font-weight:600;">academia_estudiante</div>
+            <div style="font-size:.8rem;color:var(--text-muted);line-height:2;">id<br>nombre<br>email</div>
+          </div>
+          <div style="background:var(--surface2);border:2px solid var(--accent4);border-radius:8px;padding:16px 20px;min-width:200px;">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--accent4);margin-bottom:10px;font-weight:600;">academia_estudiante_cursos<br><span style="font-weight:400;color:var(--text-muted)">(tabla pivot automática)</span></div>
+            <div style="font-size:.8rem;color:var(--text-muted);line-height:2;">id<br>estudiante_id ← FK<br>curso_id ← FK</div>
+          </div>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px 20px;min-width:160px;">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--accent2);margin-bottom:10px;font-weight:600;">academia_curso</div>
+            <div style="font-size:.8rem;color:var(--text-muted);line-height:2;">id<br>nombre<br>creditos</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout info">
+        <p>La <strong>tabla pivot</strong> (o tabla intermedia) <code>academia_estudiante_cursos</code> es creada automáticamente por Django. Cada fila en ella representa una matrícula: un estudiante en un curso específico. Tú no la tocas directamente — Django lo gestiona por ti.</p>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 4 -->
+    <section class="section" id="operaciones">
+      <div class="section-label">Sección 04</div>
+      <h2><span class="num">#</span>Operaciones básicas con M2M</h2>
+
+      <p>El ORM de Django proporciona una API muy completa para gestionar relaciones M2M a través del <strong>Manager</strong> de la relación.</p>
+
+      <div id="add"></div>
+
+      <h3>Crear objetos de ejemplo</h3>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">Django Shell / views.py</span>
+          <span class="code-lang">Python</span>
+        </div>
+        <pre><code><span class="cm"># Creamos algunos cursos</span>
+<span class="pl">mate</span>  <span class="op">=</span> <span class="cl">Curso</span><span class="op">.</span><span class="fn">objects.create</span><span class="pl">(nombre</span><span class="op">=</span><span class="st">"Matemáticas"</span><span class="pl">, creditos</span><span class="op">=</span><span class="nb">6</span><span class="pl">)</span>
+<span class="pl">prog</span>  <span class="op">=</span> <span class="cl">Curso</span><span class="op">.</span><span class="fn">objects.create</span><span class="pl">(nombre</span><span class="op">=</span><span class="st">"Programación"</span><span class="pl">, creditos</span><span class="op">=</span><span class="nb">9</span><span class="pl">)</span>
+<span class="pl">hist</span>  <span class="op">=</span> <span class="cl">Curso</span><span class="op">.</span><span class="fn">objects.create</span><span class="pl">(nombre</span><span class="op">=</span><span class="st">"Historia"</span><span class="pl">, creditos</span><span class="op">=</span><span class="nb">4</span><span class="pl">)</span>
+
+<span class="cm"># Creamos estudiantes</span>
+<span class="pl">ana</span>   <span class="op">=</span> <span class="cl">Estudiante</span><span class="op">.</span><span class="fn">objects.create</span><span class="pl">(nombre</span><span class="op">=</span><span class="st">"Ana García"</span><span class="pl">, email</span><span class="op">=</span><span class="st">"ana@uni.es"</span><span class="pl">)</span>
+<span class="pl">luis</span>  <span class="op">=</span> <span class="cl">Estudiante</span><span class="op">.</span><span class="fn">objects.create</span><span class="pl">(nombre</span><span class="op">=</span><span class="st">"Luis Martín"</span><span class="pl">, email</span><span class="op">=</span><span class="st">"luis@uni.es"</span><span class="pl">)</span>
+<span class="pl">sofia</span> <span class="op">=</span> <span class="cl">Estudiante</span><span class="op">.</span><span class="fn">objects.create</span><span class="pl">(nombre</span><span class="op">=</span><span class="st">"Sofía Ruiz"</span><span class="pl">, email</span><span class="op">=</span><span class="st">"sofia@uni.es"</span><span class="pl">)</span></code></pre>
+      </div>
+
+      <h3>Métodos del Manager M2M</h3>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Método</th><th>¿Qué hace?</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>.add(*objs)</code></td><td>Añade una o varias relaciones</td></tr>
+            <tr><td><code>.remove(*objs)</code></td><td>Elimina relaciones específicas</td></tr>
+            <tr><td><code>.set([objs])</code></td><td>Reemplaza todas las relaciones por la nueva lista</td></tr>
+            <tr><td><code>.clear()</code></td><td>Elimina <em>todas</em> las relaciones</td></tr>
+            <tr><td><code>.all()</code></td><td>Devuelve un QuerySet con todos los relacionados</td></tr>
+            <tr><td><code>.filter(...)</code></td><td>Filtra entre los relacionados</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">Django Shell / views.py</span>
+          <span class="code-lang">Python</span>
+        </div>
+        <pre><code><span class="cm"># ── ADD: matricular a Ana en Matemáticas y Programación ──</span>
+<span class="pl">ana</span><span class="op">.</span><span class="pl">cursos</span><span class="op">.</span><span class="fn">add</span><span class="pl">(mate, prog)</span>
+
+<span class="cm"># También puedes añadir por ID:</span>
+<span class="pl">ana</span><span class="op">.</span><span class="pl">cursos</span><span class="op">.</span><span class="fn">add</span><span class="pl">(</span><span class="nb">3</span><span class="pl">)</span>  <span class="cm"># añade el curso con id=3</span>
+
+<span class="cm"># ── ALL: ver los cursos de Ana ──</span>
+<span class="pl">ana</span><span class="op">.</span><span class="pl">cursos</span><span class="op">.</span><span class="fn">all</span><span class="pl">()</span>
+<span class="cm"># &lt;QuerySet [&lt;Curso: Matemáticas&gt;, &lt;Curso: Programación&gt;]&gt;</span>
+
+<span class="cm"># ── RELACIÓN INVERSA: ver los estudiantes de Programación ──</span>
+<span class="pl">prog</span><span class="op">.</span><span class="pl">estudiantes</span><span class="op">.</span><span class="fn">all</span><span class="pl">()</span>
+<span class="cm"># &lt;QuerySet [&lt;Estudiante: Ana García&gt;]&gt;</span>
+
+<span class="cm"># ── REMOVE: dar de baja a Ana de Matemáticas ──</span>
+<span class="pl">ana</span><span class="op">.</span><span class="pl">cursos</span><span class="op">.</span><span class="fn">remove</span><span class="pl">(mate)</span>
+
+<span class="cm"># ── SET: definir exactamente los cursos de Luis (reemplaza todo) ──</span>
+<span class="pl">luis</span><span class="op">.</span><span class="pl">cursos</span><span class="op">.</span><span class="fn">set</span><span class="pl">([mate, hist])</span>
+
+<span class="cm"># ── CLEAR: quitar a Sofía de todos sus cursos ──</span>
+<span class="pl">sofia</span><span class="op">.</span><span class="pl">cursos</span><span class="op">.</span><span class="fn">clear</span><span class="pl">()</span>
+
+<span class="cm"># ── COUNT: cuántos cursos tiene Luis ──</span>
+<span class="pl">luis</span><span class="op">.</span><span class="pl">cursos</span><span class="op">.</span><span class="fn">count</span><span class="pl">()</span>  <span class="cm"># → 2</span>
+
+<span class="cm"># ── EXISTS: ¿está Luis matriculado en Historia? ──</span>
+<span class="pl">luis</span><span class="op">.</span><span class="pl">cursos</span><span class="op">.</span><span class="fn">filter</span><span class="pl">(id</span><span class="op">=</span><span class="pl">hist</span><span class="op">.</span><span class="pl">id)</span><span class="op">.</span><span class="fn">exists</span><span class="pl">()</span>  <span class="cm"># → True</span></code></pre>
+      </div>
+
+      <div class="callout warn">
+        <p><strong>Importante:</strong> <code>.add()</code> nunca crea duplicados. Si intentas añadir una relación que ya existe, Django la ignora silenciosamente. ¡No hace falta que compruebes si ya existe!</p>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 5 -->
+    <section class="section" id="consultas">
+      <div class="section-label">Sección 05</div>
+      <h2><span class="num">#</span>Consultas avanzadas con M2M</h2>
+
+      <p>Las relaciones M2M son completamente compatibles con el potente sistema de consultas (<em>QuerySet API</em>) de Django. Podemos filtrar, anotar y ordenar cruzando tablas sin escribir SQL.</p>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">Consultas ORM</span>
+          <span class="code-lang">Python</span>
+        </div>
+        <pre><code><span class="kw">from</span> <span class="pl">django.db.models</span> <span class="kw">import</span> <span class="cl">Count</span><span class="pl">, Q</span>
+
+<span class="cm"># ── 1. Estudiantes matriculados en Programación ──</span>
+<span class="cl">Estudiante</span><span class="op">.</span><span class="fn">objects.filter</span><span class="pl">(cursos__nombre</span><span class="op">=</span><span class="st">"Programación"</span><span class="pl">)</span>
+
+<span class="cm"># ── 2. Cursos que tiene Ana García ──</span>
+<span class="cl">Curso</span><span class="op">.</span><span class="fn">objects.filter</span><span class="pl">(estudiantes__nombre</span><span class="op">=</span><span class="st">"Ana García"</span><span class="pl">)</span>
+
+<span class="cm"># ── 3. Cursos con MÁS de 5 estudiantes ──</span>
+<span class="cl">Curso</span><span class="op">.</span><span class="fn">objects</span>\
+    <span class="op">.</span><span class="fn">annotate</span><span class="pl">(num_estudiantes</span><span class="op">=</span><span class="fn">Count</span><span class="pl">(</span><span class="st">'estudiantes'</span><span class="pl">))</span>\
+    <span class="op">.</span><span class="fn">filter</span><span class="pl">(num_estudiantes__gt</span><span class="op">=</span><span class="nb">5</span><span class="pl">)</span>
+
+<span class="cm"># ── 4. Estudiantes con AL MENOS 2 cursos, ordenados por nombre ──</span>
+<span class="cl">Estudiante</span><span class="op">.</span><span class="fn">objects</span>\
+    <span class="op">.</span><span class="fn">annotate</span><span class="pl">(num_cursos</span><span class="op">=</span><span class="fn">Count</span><span class="pl">(</span><span class="st">'cursos'</span><span class="pl">))</span>\
+    <span class="op">.</span><span class="fn">filter</span><span class="pl">(num_cursos__gte</span><span class="op">=</span><span class="nb">2</span><span class="pl">)</span>\
+    <span class="op">.</span><span class="fn">order_by</span><span class="pl">(</span><span class="st">'nombre'</span><span class="pl">)</span>
+
+<span class="cm"># ── 5. Estudiantes matriculados en Mates O en Programación ──</span>
+<span class="cl">Estudiante</span><span class="op">.</span><span class="fn">objects.filter</span><span class="pl">(</span>
+    <span class="fn">Q</span><span class="pl">(cursos__nombre</span><span class="op">=</span><span class="st">"Matemáticas"</span><span class="pl">)</span> <span class="op">|</span>
+    <span class="fn">Q</span><span class="pl">(cursos__nombre</span><span class="op">=</span><span class="st">"Programación"</span><span class="pl">)</span>
+<span class="pl">)</span><span class="op">.</span><span class="fn">distinct</span><span class="pl">()</span>  <span class="cm"># distinct() evita duplicados en uniones</span>
+
+<span class="cm"># ── 6. Cursos que NO tienen ningún estudiante ──</span>
+<span class="cl">Curso</span><span class="op">.</span><span class="fn">objects.filter</span><span class="pl">(estudiantes__isnull</span><span class="op">=</span><span class="kw">True</span><span class="pl">)</span>
+
+<span class="cm"># ── 7. Prefetch para evitar el problema N+1 ──</span>
+<span class="pl">estudiantes</span> <span class="op">=</span> <span class="cl">Estudiante</span><span class="op">.</span><span class="fn">objects.prefetch_related</span><span class="pl">(</span><span class="st">'cursos'</span><span class="pl">)</span>
+<span class="kw">for</span> <span class="pl">est</span> <span class="kw">in</span> <span class="pl">estudiantes:</span>
+    <span class="cm"># Este acceso NO lanza una nueva query gracias a prefetch_related</span>
+    <span class="fn">print</span><span class="pl">(est</span><span class="op">.</span><span class="pl">nombre, est</span><span class="op">.</span><span class="pl">cursos</span><span class="op">.</span><span class="fn">all</span><span class="pl">())</span></code></pre>
+      </div>
+
+      <div class="callout tip">
+        <p><strong>prefetch_related</strong> es tu mejor amigo con M2M. Cuando vayas a recorrer todos los estudiantes y sus cursos, úsalo siempre para evitar una query adicional por cada estudiante (el problema <em>"N+1 queries"</em>).</p>
+      </div>
+
+      <div class="callout info">
+        <p>El doble guión bajo <code>__</code> en los filtros (<code>cursos__nombre</code>) es la notación de Django para navegar por las relaciones de un modelo a otro. Puedes encadenarlos tanto como necesites.</p>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 6 -->
+    <section class="section" id="through">
+      <div class="section-label">Sección 06</div>
+      <h2><span class="num">#</span>Tabla intermedia personalizada (<code>through</code>)</h2>
+
+      <p>La tabla pivot automática que crea Django es perfecta para muchos casos. Pero ¿qué pasa si necesitas guardar <em>información extra</em> sobre la relación misma?</p>
+
+      <p>En nuestro ejemplo universitario: ¿y si queremos saber la <strong>fecha de matrícula</strong> o la <strong>nota final</strong> de cada estudiante en cada curso? La tabla pivot automática no puede guardar eso.</p>
+
+      <p>Para esto usamos la opción <code>through</code>, que nos permite crear nuestra propia tabla intermedia con los campos adicionales que necesitemos.</p>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">academia/models.py</span>
+          <span class="code-lang">Python · Django</span>
+        </div>
+        <pre><code><span class="kw">from</span> <span class="pl">django.db</span> <span class="kw">import</span> <span class="pl">models</span>
+<span class="kw">from</span> <span class="pl">django.utils</span> <span class="kw">import</span> <span class="pl">timezone</span>
+
+
+<span class="kw">class</span> <span class="cl">Curso</span><span class="pl">(</span><span class="cl">models.Model</span><span class="pl">):</span>
+    <span class="pl">nombre</span>   <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">CharField</span><span class="pl">(max_length</span><span class="op">=</span><span class="nb">200</span><span class="pl">)</span>
+    <span class="pl">creditos</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">PositiveIntegerField</span><span class="pl">(default</span><span class="op">=</span><span class="nb">6</span><span class="pl">)</span>
+
+    <span class="kw">def</span> <span class="fn">__str__</span><span class="pl">(self):</span>
+        <span class="kw">return</span> <span class="pl">self</span><span class="op">.</span><span class="pl">nombre</span>
+
+
+<span class="kw">class</span> <span class="cl">Matricula</span><span class="pl">(</span><span class="cl">models.Model</span><span class="pl">):</span>
+    <span class="st">"""Tabla intermedia personalizada con datos extra."""</span>
+    <span class="pl">estudiante</span>    <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">ForeignKey</span><span class="pl">(</span><span class="st">'Estudiante'</span><span class="pl">, on_delete</span><span class="op">=</span><span class="pl">models.CASCADE)</span>
+    <span class="pl">curso</span>         <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">ForeignKey</span><span class="pl">(</span><span class="cl">Curso</span><span class="pl">, on_delete</span><span class="op">=</span><span class="pl">models.CASCADE)</span>
+
+    <span class="cm"># 👇 Campos extra que necesitamos</span>
+    <span class="pl">fecha_matricula</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">DateField</span><span class="pl">(default</span><span class="op">=</span><span class="pl">timezone.now)</span>
+    <span class="pl">nota_final</span>      <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">FloatField</span><span class="pl">(null</span><span class="op">=</span><span class="kw">True</span><span class="pl">, blank</span><span class="op">=</span><span class="kw">True</span><span class="pl">)</span>  <span class="cm"># puede estar vacía</span>
+
+    <span class="kw">class</span> <span class="cl">Meta</span><span class="pl">:</span>
+        <span class="cm"># Evita que un estudiante se matricule dos veces en el mismo curso</span>
+        <span class="pl">unique_together</span> <span class="op">=</span> <span class="pl">[(</span><span class="st">'estudiante'</span><span class="pl">,</span> <span class="st">'curso'</span><span class="pl">)]</span>
+        <span class="pl">verbose_name</span> <span class="op">=</span> <span class="st">"Matrícula"</span>
+        <span class="pl">ordering</span> <span class="op">=</span> <span class="pl">[</span><span class="st">'-fecha_matricula'</span><span class="pl">]</span>
+
+    <span class="kw">def</span> <span class="fn">__str__</span><span class="pl">(self):</span>
+        <span class="kw">return</span> <span class="nb">f</span><span class="st">"{self.estudiante} → {self.curso}"</span>
+
+
+<span class="kw">class</span> <span class="cl">Estudiante</span><span class="pl">(</span><span class="cl">models.Model</span><span class="pl">):</span>
+    <span class="pl">nombre</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">CharField</span><span class="pl">(max_length</span><span class="op">=</span><span class="nb">200</span><span class="pl">)</span>
+    <span class="pl">email</span>  <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">EmailField</span><span class="pl">(unique</span><span class="op">=</span><span class="kw">True</span><span class="pl">)</span>
+
+    <span class="cm"># 👇 Usamos through= para indicar nuestra tabla personalizada</span>
+    <span class="pl">cursos</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">ManyToManyField</span><span class="pl">(</span>
+        <span class="cl">Curso</span><span class="pl">,</span>
+        <span class="pl">through</span><span class="op">=</span><span class="cl">Matricula</span><span class="pl">,</span>
+        <span class="pl">related_name</span><span class="op">=</span><span class="st">'estudiantes'</span>
+    <span class="pl">)</span>
+
+    <span class="kw">def</span> <span class="fn">__str__</span><span class="pl">(self):</span>
+        <span class="kw">return</span> <span class="pl">self</span><span class="op">.</span><span class="pl">nombre</span></code></pre>
+      </div>
+
+      <div id="through-ops"></div>
+
+      <h3>Trabajar con la tabla through</h3>
+      <p>Cuando usas <code>through</code>, ya <strong>no puedes usar</strong> <code>.add()</code>, <code>.remove()</code> o <code>.set()</code> directamente. En su lugar, creas y eliminas instancias del modelo intermedio (<code>Matricula</code>) directamente:</p>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">Operaciones con through</span>
+          <span class="code-lang">Python</span>
+        </div>
+        <pre><code><span class="kw">from</span> <span class="pl">datetime</span> <span class="kw">import</span> <span class="pl">date</span>
+
+<span class="cm"># ── CREAR una matrícula (en lugar de .add()) ──</span>
+<span class="pl">m</span> <span class="op">=</span> <span class="cl">Matricula</span><span class="op">.</span><span class="fn">objects.create</span><span class="pl">(</span>
+    <span class="pl">estudiante</span>     <span class="op">=</span> <span class="pl">ana</span><span class="pl">,</span>
+    <span class="pl">curso</span>          <span class="op">=</span> <span class="pl">prog</span><span class="pl">,</span>
+    <span class="pl">fecha_matricula</span> <span class="op">=</span> <span class="pl">date</span><span class="op">.</span><span class="fn">today</span><span class="pl">(),</span>
+<span class="pl">)</span>
+
+<span class="cm"># ── ACTUALIZAR la nota de Ana en Programación ──</span>
+<span class="pl">m</span><span class="op">.</span><span class="pl">nota_final</span> <span class="op">=</span> <span class="nb">8.5</span>
+<span class="pl">m</span><span class="op">.</span><span class="fn">save</span><span class="pl">()</span>
+
+<span class="cm"># ── LEER los cursos de Ana (funciona igual) ──</span>
+<span class="pl">ana</span><span class="op">.</span><span class="pl">cursos</span><span class="op">.</span><span class="fn">all</span><span class="pl">()</span>
+
+<span class="cm"># ── LEER la matrícula para ver los datos extra ──</span>
+<span class="pl">matricula</span> <span class="op">=</span> <span class="cl">Matricula</span><span class="op">.</span><span class="fn">objects.get</span><span class="pl">(estudiante</span><span class="op">=</span><span class="pl">ana, curso</span><span class="op">=</span><span class="pl">prog)</span>
+<span class="fn">print</span><span class="pl">(matricula</span><span class="op">.</span><span class="pl">nota_final)</span>  <span class="cm"># → 8.5</span>
+
+<span class="cm"># ── ELIMINAR una matrícula (en lugar de .remove()) ──</span>
+<span class="cl">Matricula</span><span class="op">.</span><span class="fn">objects.filter</span><span class="pl">(estudiante</span><span class="op">=</span><span class="pl">ana, curso</span><span class="op">=</span><span class="pl">prog)</span><span class="op">.</span><span class="fn">delete</span><span class="pl">()</span>
+
+<span class="cm"># ── CONSULTAS avanzadas cruzando through ──</span>
+<span class="cm"># Estudiantes que han aprobado (nota >= 5) Programación</span>
+<span class="cl">Estudiante</span><span class="op">.</span><span class="fn">objects.filter</span><span class="pl">(</span>
+    <span class="pl">matricula__curso</span><span class="op">=</span><span class="pl">prog</span><span class="pl">,</span>
+    <span class="pl">matricula__nota_final__gte</span><span class="op">=</span><span class="nb">5.0</span>
+<span class="pl">)</span>
+
+<span class="cm"># Cursos en los que Ana tiene nota superior a 7</span>
+<span class="pl">ana</span><span class="op">.</span><span class="pl">cursos</span><span class="op">.</span><span class="fn">filter</span><span class="pl">(matricula__nota_final__gt</span><span class="op">=</span><span class="nb">7.0</span><span class="pl">)</span></code></pre>
+      </div>
+
+      <div class="callout note">
+        <p>Usa <code>through</code> siempre que necesites guardar datos adicionales sobre la relación (fecha, estado, cantidad, etc.). Si solo necesitas saber qué está relacionado con qué, la tabla pivot automática es suficiente.</p>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 7 -->
+    <section class="section" id="admin">
+      <div class="section-label">Sección 07</div>
+      <h2><span class="num">#</span>Configurar el panel de Admin</h2>
+
+      <p>Django Admin entiende las relaciones M2M de forma nativa. Con un par de líneas puedes hacer que sea muy cómodo de gestionar.</p>
+
+      <h3>Admin básico con M2M simple</h3>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">academia/admin.py</span>
+          <span class="code-lang">Python · Django Admin</span>
+        </div>
+        <pre><code><span class="kw">from</span> <span class="pl">django.contrib</span> <span class="kw">import</span> <span class="pl">admin</span>
+<span class="kw">from</span> <span class="pl">.models</span> <span class="kw">import</span> <span class="pl">Estudiante, Curso, Matricula</span>
+
+
+<span class="dc">@admin.register(Estudiante)</span>
+<span class="kw">class</span> <span class="cl">EstudianteAdmin</span><span class="pl">(</span><span class="cl">admin.ModelAdmin</span><span class="pl">):</span>
+    <span class="pl">list_display</span>  <span class="op">=</span> <span class="pl">[</span><span class="st">'nombre'</span><span class="pl">,</span> <span class="st">'email'</span><span class="pl">]</span>
+    <span class="pl">search_fields</span> <span class="op">=</span> <span class="pl">[</span><span class="st">'nombre'</span><span class="pl">,</span> <span class="st">'email'</span><span class="pl">]</span>
+    <span class="cm"># filter_horizontal muestra un selector doble (izquierda/derecha)</span>
+    <span class="pl">filter_horizontal</span> <span class="op">=</span> <span class="pl">[</span><span class="st">'cursos'</span><span class="pl">]</span>
+
+
+<span class="dc">@admin.register(Curso)</span>
+<span class="kw">class</span> <span class="cl">CursoAdmin</span><span class="pl">(</span><span class="cl">admin.ModelAdmin</span><span class="pl">):</span>
+    <span class="pl">list_display</span>  <span class="op">=</span> <span class="pl">[</span><span class="st">'nombre'</span><span class="pl">,</span> <span class="st">'creditos'</span><span class="pl">]</span>
+    <span class="pl">search_fields</span> <span class="op">=</span> <span class="pl">[</span><span class="st">'nombre'</span><span class="pl">]</span></code></pre>
+      </div>
+
+      <h3>Admin con tabla through (Inline)</h3>
+      <p>Cuando usas <code>through</code>, puedes mostrar las matrículas como filas directamente dentro del formulario del estudiante, usando un <code>TabularInline</code>:</p>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">academia/admin.py</span>
+          <span class="code-lang">Python · Django Admin</span>
+        </div>
+        <pre><code><span class="kw">class</span> <span class="cl">MatriculaInline</span><span class="pl">(</span><span class="cl">admin.TabularInline</span><span class="pl">):</span>
+    <span class="pl">model</span>  <span class="op">=</span> <span class="cl">Matricula</span>
+    <span class="pl">extra</span>  <span class="op">=</span> <span class="nb">1</span>   <span class="cm"># cuántos formularios en blanco mostrar</span>
+    <span class="pl">fields</span> <span class="op">=</span> <span class="pl">[</span><span class="st">'curso'</span><span class="pl">,</span> <span class="st">'fecha_matricula'</span><span class="pl">,</span> <span class="st">'nota_final'</span><span class="pl">]</span>
+
+
+<span class="dc">@admin.register(Estudiante)</span>
+<span class="kw">class</span> <span class="cl">EstudianteAdmin</span><span class="pl">(</span><span class="cl">admin.ModelAdmin</span><span class="pl">):</span>
+    <span class="pl">list_display</span>  <span class="op">=</span> <span class="pl">[</span><span class="st">'nombre'</span><span class="pl">,</span> <span class="st">'email'</span><span class="pl">]</span>
+    <span class="pl">search_fields</span> <span class="op">=</span> <span class="pl">[</span><span class="st">'nombre'</span><span class="pl">]</span>
+    <span class="pl">inlines</span>       <span class="op">=</span> <span class="pl">[</span><span class="cl">MatriculaInline</span><span class="pl">]</span>   <span class="cm"># las matrículas aparecen dentro del estudiante</span>
+
+
+<span class="dc">@admin.register(Matricula)</span>
+<span class="kw">class</span> <span class="cl">MatriculaAdmin</span><span class="pl">(</span><span class="cl">admin.ModelAdmin</span><span class="pl">):</span>
+    <span class="pl">list_display</span>   <span class="op">=</span> <span class="pl">[</span><span class="st">'estudiante'</span><span class="pl">,</span> <span class="st">'curso'</span><span class="pl">,</span> <span class="st">'fecha_matricula'</span><span class="pl">,</span> <span class="st">'nota_final'</span><span class="pl">]</span>
+    <span class="pl">list_filter</span>    <span class="op">=</span> <span class="pl">[</span><span class="st">'curso'</span><span class="pl">]</span>
+    <span class="pl">search_fields</span>  <span class="op">=</span> <span class="pl">[</span><span class="st">'estudiante__nombre'</span><span class="pl">,</span> <span class="st">'curso__nombre'</span><span class="pl">]</span></code></pre>
+      </div>
+
+      <div class="callout tip">
+        <p><strong>filter_horizontal</strong> vs <strong>filter_vertical</strong>: ambos muestran un selector de doble panel para elegir opciones en relaciones M2M. <code>filter_horizontal</code> tiene los paneles en horizontal y es el más popular.</p>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 8 -->
+    <section class="section" id="buenas-practicas">
+      <div class="section-label">Sección 08</div>
+      <h2><span class="num">#</span>Buenas prácticas</h2>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h4>Usa siempre <code>related_name</code></h4>
+            <p>Define un <code>related_name</code> descriptivo en todos tus <code>ManyToManyField</code>. Hace el código mucho más legible y evita la notación fea <code>_set</code> por defecto.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h4>Usa <code>prefetch_related</code> al recorrer M2M</h4>
+            <p>Siempre que vayas a iterar sobre objetos y acceder a su relación M2M dentro del bucle, usa <code>prefetch_related</code>. Sin él, Django hará una consulta SQL por cada objeto del bucle (problema N+1).</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h4>Usa <code>through</code> si la relación tiene datos propios</h4>
+            <p>Si necesitas guardar <em>cuándo</em>, <em>cómo</em>, o cualquier otra información sobre el hecho de que dos objetos están relacionados, usa una tabla intermedia personalizada desde el principio. Es mucho más difícil añadirla después.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h4>Añade <code>unique_together</code> en las tablas through</h4>
+            <p>Si usas una tabla intermedia, asegúrate de que no puedas tener dos registros para la misma par de objetos relacionados. Usa <code>unique_together</code> o <code>UniqueConstraint</code> en la clase <code>Meta</code>.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <h4>Usa <code>.distinct()</code> cuando combines filtros con OR</h4>
+            <p>Al filtrar M2M con condiciones OR (usando <code>Q</code>), los JOINs pueden generar filas duplicadas en el resultado. Añade <code>.distinct()</code> para eliminarlos.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">6</div>
+          <div class="step-body">
+            <h4>Coloca el campo en el modelo más "natural"</h4>
+            <p>Puedes poner el <code>ManyToManyField</code> en cualquiera de los dos modelos. Ponlo en el que tenga más sentido semánticamente: <em>"Un estudiante tiene cursos"</em> → el campo va en <code>Estudiante</code>.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- QUIZ -->
+    <section class="section" id="quiz">
+      <div class="section-label">Sección 09</div>
+      <h2><span class="num">#</span>Mini Quiz de Comprobación</h2>
+      <p>¿Cuánto has aprendido? Pon a prueba tus conocimientos con estas preguntas:</p>
+
+      <div class="quiz">
+        <div class="quiz-title">🧠 Test Rápido</div>
+
+        <!-- Q1 -->
+        <div class="quiz-q" id="q1">
+          <p><strong>1.</strong> ¿Cuántas tablas crea Django cuando defines un <code>ManyToManyField</code> entre dos modelos sin usar <code>through</code>?</p>
+          <label><input type="radio" name="q1" value="a"> Solo 2 tablas (una por modelo)</label>
+          <label><input type="radio" name="q1" value="b"> 3 tablas: dos para los modelos y una tabla pivot</label>
+          <label><input type="radio" name="q1" value="c"> 4 tablas: añade una extra de metadatos</label>
+        </div>
+
+        <!-- Q2 -->
+        <div class="quiz-q" id="q2">
+          <p><strong>2.</strong> ¿Cuál de estos métodos reemplaza <em>todas</em> las relaciones existentes de un objeto con las nuevas?</p>
+          <label><input type="radio" name="q2" value="a"> <code>.add()</code></label>
+          <label><input type="radio" name="q2" value="b"> <code>.clear()</code></label>
+          <label><input type="radio" name="q2" value="c"> <code>.set()</code></label>
+        </div>
+
+        <!-- Q3 -->
+        <div class="quiz-q" id="q3">
+          <p><strong>3.</strong> Si usas <code>through=Matricula</code>, ¿cómo añades una nueva relación?</p>
+          <label><input type="radio" name="q3" value="a"> Usando <code>estudiante.cursos.add(curso)</code></label>
+          <label><input type="radio" name="q3" value="b"> Creando un objeto <code>Matricula</code> directamente</label>
+          <label><input type="radio" name="q3" value="c"> Con <code>Curso.objects.link(estudiante)</code></label>
+        </div>
+
+        <!-- Q4 -->
+        <div class="quiz-q" id="q4">
+          <p><strong>4.</strong> ¿Qué herramienta del ORM deberías usar para evitar el problema N+1 al acceder a relaciones M2M?</p>
+          <label><input type="radio" name="q4" value="a"> <code>select_related()</code></label>
+          <label><input type="radio" name="q4" value="b"> <code>annotate()</code></label>
+          <label><input type="radio" name="q4" value="c"> <code>prefetch_related()</code></label>
+        </div>
+
+        <button class="quiz-btn" onclick="checkQuiz()">Comprobar respuestas ✓</button>
+        <div class="quiz-result" id="quiz-result"></div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN RESUMEN -->
+    <section class="section" id="resumen">
+      <div class="section-label">Sección 10</div>
+      <h2><span class="num">#</span>Resumen</h2>
+
+      <p>Has recorrido toda la teoría y práctica de las relaciones Many-to-Many en Django. Aquí tienes un resumen visual de los conceptos clave:</p>
+
+      <div class="summary-grid">
+        <div class="sum-card">
+          <div class="sum-card-icon">🔗</div>
+          <h4>ManyToManyField</h4>
+          <p>El campo que define la relación. Solo va en uno de los dos modelos. Django gestiona todo lo demás.</p>
+        </div>
+        <div class="sum-card">
+          <div class="sum-card-icon">📋</div>
+          <h4>Tabla pivot</h4>
+          <p>Tabla intermedia automática que Django crea para guardar los pares de IDs relacionados.</p>
+        </div>
+        <div class="sum-card">
+          <div class="sum-card-icon">🔄</div>
+          <h4>related_name</h4>
+          <p>Permite navegar la relación en sentido inverso de forma clara y legible.</p>
+        </div>
+        <div class="sum-card">
+          <div class="sum-card-icon">➕</div>
+          <h4>add / remove / set / clear</h4>
+          <p>Los cuatro métodos principales para gestionar los objetos relacionados.</p>
+        </div>
+        <div class="sum-card">
+          <div class="sum-card-icon">🏗️</div>
+          <h4>through</h4>
+          <p>Tabla intermedia personalizada cuando necesitas guardar datos extra en la relación.</p>
+        </div>
+        <div class="sum-card">
+          <div class="sum-card-icon">⚡</div>
+          <h4>prefetch_related</h4>
+          <p>Optimización esencial para evitar consultas N+1 al iterar sobre objetos con M2M.</p>
+        </div>
+      </div>
+
+      <div class="callout tip" style="margin-top: 32px;">
+        <p><strong>¿Cuál es el siguiente paso?</strong> Practica creando tu propia app con un modelo M2M real: un sistema de recetas con ingredientes, un blog con etiquetas, o una red social con seguidores. La práctica es la clave para dominar el ORM de Django.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  Creado con ❤️ para el aprendizaje de Django · <span>Many-to-Many Relationships</span> · <a href="https://github.com/manuelcanga/piensa-en-django" target="_blank" style="color: #fff;">Piensa en Django (@manuelcanga)</a>
+</footer>
+
+<script>
+  // ── PROGRESS BAR ──
+  const bar = document.getElementById('progress-bar');
+  window.addEventListener('scroll', () => {
+    const h = document.documentElement;
+    const pct = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100;
+    bar.style.width = pct + '%';
+  });
+
+  // ── SIDEBAR ACTIVE LINK ──
+  const sections = document.querySelectorAll('section[id]');
+  const links    = document.querySelectorAll('.sidebar nav a');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = document.querySelector(`.sidebar nav a[href="#${e.target.id}"]`);
+        if (a) a.classList.add('active');
+      }
+    });
+  }, { threshold: 0.3 });
+  sections.forEach(s => obs.observe(s));
+
+  // ── QUIZ ──
+  function checkQuiz() {
+    const answers = { q1: 'b', q2: 'c', q3: 'b', q4: 'c' };
+    let correct = 0, total = Object.keys(answers).length;
+    for (const [q, ans] of Object.entries(answers)) {
+      const sel = document.querySelector(`input[name="${q}"]:checked`);
+      if (sel && sel.value === ans) correct++;
+    }
+    const res = document.getElementById('quiz-result');
+    res.style.display = 'block';
+    if (correct === total) {
+      res.className = 'quiz-result ok';
+      res.textContent = `✅ ¡Perfecto! ${correct}/${total} respuestas correctas. ¡Dominas las bases de M2M en Django!`;
+    } else if (correct >= total / 2) {
+      res.className = 'quiz-result ok';
+      res.textContent = `👍 Bien hecho: ${correct}/${total} correctas. Repasa las secciones de los fallos para afianzarlo.`;
+    } else {
+      res.className = 'quiz-result err';
+      res.textContent = `📚 ${correct}/${total} correctas. Te recomendamos repasar la lección con calma. ¡Tú puedes!`;
+    }
+  }
+</script>
+</body>
+</html>
