@@ -1,0 +1,1628 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relaciones One-to-Many en Django</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&family=Merriweather:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:         #0b0f1a;
+    --surface:    #111827;
+    --surface2:   #1a2236;
+    --surface3:   #212d44;
+    --border:     #263148;
+    --accent:     #60a5fa;   /* blue */
+    --accent2:    #34d399;   /* green */
+    --accent3:    #f59e0b;   /* amber */
+    --accent4:    #f472b6;   /* pink */
+    --accent5:    #a78bfa;   /* violet */
+    --text:       #e2e8f0;
+    --text-muted: #64748b;
+    --code-bg:    #080d18;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Merriweather', Georgia, serif;
+    font-size: 16.5px;
+    line-height: 1.85;
+    overflow-x: hidden;
+  }
+
+  /* ── PROGRESS ── */
+  #progress-bar {
+    position: fixed; top: 0; left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    z-index: 200;
+    transition: width .1s linear;
+    width: 0%;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    padding: 90px 40px 70px;
+    text-align: center;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 30% 0%,  rgba(96,165,250,.10) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 50% at 75% 90%, rgba(52,211,153,.08) 0%, transparent 60%),
+      radial-gradient(ellipse 30% 40% at 90% 10%, rgba(244,114,182,.06) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  /* decorative grid */
+  .hero::after {
+    content: '';
+    position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(96,165,250,.04) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(96,165,250,.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+  .hero-inner { position: relative; z-index: 1; }
+  .hero-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(96,165,250,.08);
+    border: 1px solid rgba(96,165,250,.25);
+    border-radius: 40px;
+    padding: 6px 18px;
+    margin-bottom: 30px;
+  }
+  .hero-chip::before { content: '◆'; font-size: 8px; }
+  .hero h1 {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(2.4rem, 6vw, 4rem);
+    font-weight: 800;
+    line-height: 1.07;
+    letter-spacing: -.03em;
+    margin-bottom: 22px;
+  }
+  .hero h1 .line1 { display: block; color: var(--text); }
+  .hero h1 .line2 { display: block; color: var(--accent); }
+  .hero-desc {
+    font-size: 1rem;
+    color: var(--text-muted);
+    max-width: 520px;
+    margin: 0 auto 38px;
+    font-style: italic;
+    font-weight: 300;
+  }
+  .hero-pills {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .pill {
+    font-family: 'Fira Code', monospace;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .pill em { color: var(--accent2); font-style: normal; }
+
+  /* ── LAYOUT ── */
+  .page-grid {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  @media (max-width: 900px) {
+    .page-grid { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    position: sticky; top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+    padding: 36px 22px;
+  }
+  .sb-label {
+    font-family: 'Fira Code', monospace;
+    font-size: 9.5px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    padding-left: 10px;
+  }
+  .sidebar nav a {
+    display: block;
+    font-family: 'Outfit', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 7px 12px;
+    border-radius: 7px;
+    border-left: 2px solid transparent;
+    margin-bottom: 2px;
+    transition: all .2s;
+  }
+  .sidebar nav a:hover, .sidebar nav a.active {
+    color: var(--accent);
+    border-left-color: var(--accent);
+    background: rgba(96,165,250,.07);
+    padding-left: 16px;
+  }
+  .sidebar nav a.sub {
+    font-size: 12px;
+    padding-left: 24px;
+    font-weight: 400;
+    opacity: .85;
+  }
+  .sidebar nav a.sub:hover, .sidebar nav a.sub.active {
+    padding-left: 28px;
+  }
+  .sb-sep {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 12px 0;
+  }
+
+  /* ── CONTENT ── */
+  .content {
+    padding: 52px 60px 90px;
+    max-width: 840px;
+  }
+  @media (max-width: 700px) { .content { padding: 28px 20px 60px; } }
+
+  /* ── SECTIONS ── */
+  .section {
+    margin-bottom: 68px;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeUp .55s ease forwards;
+  }
+  .section:nth-child(1)  { animation-delay: .04s }
+  .section:nth-child(2)  { animation-delay: .10s }
+  .section:nth-child(3)  { animation-delay: .16s }
+  .section:nth-child(4)  { animation-delay: .22s }
+  .section:nth-child(5)  { animation-delay: .28s }
+  .section:nth-child(6)  { animation-delay: .34s }
+  .section:nth-child(7)  { animation-delay: .40s }
+  .section:nth-child(8)  { animation-delay: .46s }
+  .section:nth-child(9)  { animation-delay: .52s }
+  .section:nth-child(10) { animation-delay: .58s }
+  .section:nth-child(11) { animation-delay: .64s }
+  .section:nth-child(12) { animation-delay: .70s }
+
+  @keyframes fadeUp { to { opacity: 1; transform: none; } }
+
+  .section-tag {
+    font-family: 'Fira Code', monospace;
+    font-size: 10px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-tag::before {
+    content: '';
+    display: inline-block;
+    width: 20px; height: 2px;
+    background: var(--accent2);
+    border-radius: 2px;
+  }
+
+  h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.85rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 22px;
+    scroll-margin-top: 32px;
+  }
+  h2 .idx {
+    font-family: 'Fira Code', monospace;
+    font-size: .85rem;
+    color: var(--accent);
+    margin-right: 8px;
+    font-weight: 400;
+  }
+
+  h3 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.12rem;
+    font-weight: 600;
+    color: var(--accent3);
+    margin: 36px 0 14px;
+    scroll-margin-top: 32px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  h3::before {
+    content: '';
+    display: inline-block;
+    width: 4px; height: 16px;
+    background: var(--accent3);
+    border-radius: 2px;
+  }
+
+  h4 {
+    font-family: 'Outfit', sans-serif;
+    font-size: .98rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  p { margin-bottom: 18px; }
+  p:last-child { margin-bottom: 0; }
+
+  strong { color: var(--accent3); font-weight: 600; }
+  em { color: var(--accent); font-style: italic; }
+
+  ul, ol { margin: 14px 0 18px 24px; }
+  li { margin-bottom: 8px; line-height: 1.75; }
+
+  /* ── CALLOUTS ── */
+  .callout {
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 22px 0;
+    font-size: .92rem;
+    display: grid;
+    grid-template-columns: 24px 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+  .callout-icon { font-size: 1.1rem; margin-top: 2px; }
+  .callout.info  { background: rgba(96,165,250,.07);  border: 1px solid rgba(96,165,250,.2); }
+  .callout.tip   { background: rgba(52,211,153,.07);  border: 1px solid rgba(52,211,153,.2); }
+  .callout.warn  { background: rgba(245,158,11,.07);  border: 1px solid rgba(245,158,11,.2); }
+  .callout.note  { background: rgba(167,139,250,.07); border: 1px solid rgba(167,139,250,.2); }
+  .callout.danger{ background: rgba(244,114,182,.07); border: 1px solid rgba(244,114,182,.2); }
+  .callout p { margin: 0; }
+
+  /* ── CODE ── */
+  .code-wrap {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin: 22px 0;
+    overflow: hidden;
+  }
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+  }
+  .code-dots { display: flex; gap: 6px; }
+  .code-dots i { width: 11px; height: 11px; border-radius: 50%; display: block; }
+  .code-dots i:nth-child(1) { background: #ef4444; }
+  .code-dots i:nth-child(2) { background: #f59e0b; }
+  .code-dots i:nth-child(3) { background: #22c55e; }
+  .code-file {
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    flex: 1;
+    text-align: center;
+  }
+  .code-lang {
+    font-family: 'Fira Code', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(96,165,250,.1);
+    border-radius: 4px;
+    padding: 2px 8px;
+  }
+  pre {
+    padding: 22px 24px;
+    overflow-x: auto;
+    line-height: 1.7;
+    font-size: .815rem;
+  }
+  code { font-family: 'Fira Code', monospace; }
+  p code, li code, td code {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-size: .78rem;
+    color: var(--accent);
+    font-family: 'Fira Code', monospace;
+  }
+
+  /* syntax */
+  .kw  { color: #93c5fd; }
+  .cl  { color: #67e8f9; }
+  .fn  { color: #c4b5fd; }
+  .st  { color: #86efac; }
+  .cm  { color: #475569; font-style: italic; }
+  .nb  { color: #fda4af; }
+  .dc  { color: #fbbf24; }
+  .op  { color: #60a5fa; }
+  .pl  { color: #e2e8f0; }
+  .nu  { color: #f9a8d4; }
+
+  /* ── DIAGRAM ── */
+  .diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 30px 24px;
+    margin: 24px 0;
+    overflow-x: auto;
+  }
+  .diagram-title {
+    font-family: 'Fira Code', monospace;
+    font-size: 10px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+    text-align: center;
+  }
+  .db-layout {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0;
+    flex-wrap: wrap;
+  }
+  .db-table {
+    background: var(--surface2);
+    border-radius: 10px;
+    overflow: hidden;
+    min-width: 170px;
+    border: 1px solid var(--border);
+  }
+  .db-table.highlight { border-color: var(--accent); }
+  .db-table-head {
+    font-family: 'Outfit', sans-serif;
+    font-size: .82rem;
+    font-weight: 700;
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+  }
+  .db-table.highlight .db-table-head { background: rgba(96,165,250,.12); color: var(--accent); }
+  .db-table:not(.highlight) .db-table-head { background: var(--surface3); color: var(--accent2); }
+  .db-table-row {
+    font-family: 'Fira Code', monospace;
+    font-size: .72rem;
+    padding: 7px 16px;
+    border-bottom: 1px solid rgba(38,49,72,.5);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+  }
+  .db-table-row:last-child { border-bottom: none; }
+  .db-table-row .pk  { color: var(--accent3); font-size: .65rem; background: rgba(245,158,11,.1); border-radius: 3px; padding: 1px 4px; }
+  .db-table-row .fk  { color: var(--accent4); font-size: .65rem; background: rgba(244,114,182,.1); border-radius: 3px; padding: 1px 4px; }
+  .db-conn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0 16px;
+    gap: 4px;
+    min-height: 80px;
+    align-self: center;
+  }
+  .db-conn-line {
+    font-family: 'Fira Code', monospace;
+    font-size: .7rem;
+    color: var(--text-muted);
+    text-align: center;
+    white-space: nowrap;
+  }
+  .db-arrow {
+    color: var(--accent);
+    font-size: 1.6rem;
+  }
+
+  /* ── TABLE ── */
+  .table-wrap {
+    overflow-x: auto;
+    margin: 20px 0;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  thead { background: var(--surface); }
+  th {
+    font-family: 'Outfit', sans-serif;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 12px 18px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  td { padding: 11px 18px; border-bottom: 1px solid rgba(38,49,72,.5); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+
+  /* ── COMPARISON CARDS ── */
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 22px 0;
+  }
+  @media (max-width: 560px) { .compare-grid { grid-template-columns: 1fr; } }
+  .compare-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .compare-card.yes { border-color: rgba(52,211,153,.3); }
+  .compare-card.no  { border-color: rgba(244,114,182,.3); }
+  .compare-card-label {
+    font-family: 'Outfit', sans-serif;
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .compare-card.yes .compare-card-label { color: var(--accent2); }
+  .compare-card.no  .compare-card-label { color: var(--accent4); }
+  .compare-card p { font-size: .88rem; color: var(--text-muted); margin: 0; }
+
+  /* ── STEPS ── */
+  .steps { counter-reset: step; margin: 24px 0; }
+  .step {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 18px;
+    margin-bottom: 28px;
+    align-items: start;
+  }
+  .step-num {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    background: rgba(96,165,250,.1);
+    border: 1px solid rgba(96,165,250,.3);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+    font-size: 1rem;
+    color: var(--accent);
+    flex-shrink: 0;
+    counter-increment: step;
+  }
+  .step-body h4 { font-family: 'Outfit', sans-serif; font-size: 1rem; margin-bottom: 6px; color: var(--accent); }
+  .step-body p { font-size: .92rem; margin: 0; color: var(--text-muted); }
+
+  /* ── ON_DELETE TABLE ── */
+  .on-delete-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin: 20px 0;
+  }
+  .on-delete-row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    font-size: .88rem;
+  }
+  .on-delete-key {
+    font-family: 'Fira Code', monospace;
+    font-size: .8rem;
+    padding: 12px 16px;
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    border-right: 1px solid var(--border);
+  }
+  .on-delete-val {
+    padding: 12px 16px;
+    background: var(--surface);
+    color: var(--text-muted);
+  }
+  .on-delete-key.c1 { color: var(--accent4); }
+  .on-delete-key.c2 { color: var(--accent3); }
+  .on-delete-key.c3 { color: var(--accent);  }
+  .on-delete-key.c4 { color: var(--accent5); }
+  .on-delete-key.c5 { color: var(--accent2); }
+
+  /* ── QUIZ ── */
+  .quiz {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px 30px;
+    margin: 32px 0;
+  }
+  .quiz-header {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .quiz-q { margin-bottom: 22px; padding-bottom: 22px; border-bottom: 1px solid var(--border); }
+  .quiz-q:last-of-type { border-bottom: none; }
+  .quiz-q p { font-size: .95rem; margin-bottom: 12px; }
+  .quiz-q label {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: .88rem; color: var(--text-muted);
+    padding: 9px 12px; border-radius: 7px;
+    cursor: pointer; transition: background .15s;
+    margin-bottom: 4px; line-height: 1.5;
+  }
+  .quiz-q label:hover { background: var(--surface2); color: var(--text); }
+  .quiz-q input[type=radio] { accent-color: var(--accent); margin-top: 2px; flex-shrink: 0; }
+  .quiz-btn {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    font-size: .88rem;
+    background: var(--accent);
+    color: #0b0f1a;
+    border: none; border-radius: 8px;
+    padding: 11px 26px; cursor: pointer;
+    margin-top: 8px; transition: opacity .2s;
+    letter-spacing: .02em;
+  }
+  .quiz-btn:hover { opacity: .85; }
+  .quiz-result {
+    margin-top: 16px;
+    font-family: 'Fira Code', monospace;
+    font-size: .88rem;
+    padding: 12px 18px;
+    border-radius: 8px;
+    display: none;
+    line-height: 1.6;
+  }
+  .quiz-result.ok  { background: rgba(52,211,153,.1);  color: var(--accent2); border: 1px solid rgba(52,211,153,.2); }
+  .quiz-result.err { background: rgba(244,114,182,.1); color: var(--accent4); border: 1px solid rgba(244,114,182,.2); }
+  .quiz-result.mid { background: rgba(245,158,11,.1);  color: var(--accent3); border: 1px solid rgba(245,158,11,.2); }
+
+  /* ── SUMMARY ── */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin: 24px 0;
+  }
+  .sum-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    transition: border-color .2s, transform .2s;
+    cursor: default;
+  }
+  .sum-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .sum-card-ico  { font-size: 1.7rem; margin-bottom: 12px; }
+  .sum-card h4   { font-family: 'Outfit', sans-serif; font-size: .88rem; font-weight: 700; color: var(--accent); margin-bottom: 8px; }
+  .sum-card p    { font-size: .8rem; color: var(--text-muted); margin: 0; line-height: 1.6; }
+
+  /* ── INLINE EXAMPLE ── */
+  .real-world {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin: 22px 0;
+  }
+  .rw-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    font-size: .85rem;
+  }
+  .rw-card .rw-one { color: var(--accent3); font-family: 'Outfit', sans-serif; font-weight: 700; margin-bottom: 4px; }
+  .rw-card .rw-arr { color: var(--text-muted); font-size: .75rem; margin: 6px 0; font-family: 'Fira Code', monospace; }
+  .rw-card .rw-many { color: var(--accent2); font-family: 'Outfit', sans-serif; font-weight: 700; }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 50px 0; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center;
+    padding: 40px 20px;
+    border-top: 1px solid var(--border);
+    font-family: 'Fira Code', monospace;
+    font-size: .75rem;
+    color: var(--text-muted);
+  }
+  footer strong { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-inner">
+    <div class="hero-chip">Django ORM · Relaciones</div>
+    <h1>
+      <span class="line1">Relaciones</span>
+      <span class="line2">One-to-Many</span>
+    </h1>
+    <p class="hero-desc">Aprende a modelar relaciones de uno a muchos en Django con <code>ForeignKey</code>: el campo más utilizado en cualquier proyecto.</p>
+    <div class="hero-pills">
+      <span class="pill"><em>📚</em> Nivel: Iniciación</span>
+      <span class="pill"><em>🕐</em> Lectura ~25 min</span>
+      <span class="pill"><em>🐍</em> Python + Django</span>
+      <span class="pill"><em>✅</em> Con ejercicios</span>
+    </div>
+  </div>
+</header>
+
+<div class="page-grid">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <p class="sb-label">Contenido</p>
+    <nav>
+      <a href="#intro">¿Qué es One-to-Many?</a>
+      <a href="#analogia">Ejemplos del mundo real</a>
+      <a href="#foreignkey">ForeignKey en Django</a>
+      <a href="#fk-params" class="sub">Parámetros clave</a>
+      <a href="#on-delete">on_delete explicado</a>
+      <a href="#migraciones">Migraciones y tablas</a>
+      <a href="#shell">Operaciones básicas</a>
+      <a href="#manager" class="sub">El Manager inverso</a>
+      <a href="#consultas">Consultas avanzadas</a>
+      <a href="#related-name">related_name</a>
+      <a href="#select-related">select_related</a>
+      <a href="#formularios">ForeignKey en Forms</a>
+      <a href="#admin">Django Admin</a>
+      <a href="#errores">Errores comunes</a>
+      <a href="#buenas-practicas">Buenas prácticas</a>
+      <a href="#quiz">Mini Quiz</a>
+      <a href="#resumen">Resumen</a>
+    </nav>
+  </aside>
+
+  <!-- CONTENT -->
+  <main class="content">
+
+    <!-- S1 -->
+    <section class="section" id="intro">
+      <div class="section-tag">Sección 01</div>
+      <h2><span class="idx">01.</span>¿Qué es una relación One-to-Many?</h2>
+
+      <p>Una relación <strong>One-to-Many</strong> (uno a muchos) describe el caso en que <em>un único registro</em> de una tabla está asociado con <em>múltiples registros</em> de otra tabla, pero cada uno de esos registros del otro lado pertenece a uno solo.</p>
+
+      <p>En una base de datos, los tres tipos de relaciones son:</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Relación</th><th>Descripción</th><th>Ejemplo</th><th>Django</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>One-to-One</code></td>
+              <td>Un registro ↔ exactamente uno</td>
+              <td>Persona ↔ Pasaporte</td>
+              <td><code>OneToOneField</code></td>
+            </tr>
+            <tr style="background: rgba(96,165,250,.05);">
+              <td><strong><code>One-to-Many</code></strong></td>
+              <td>Un registro → muchos del otro lado</td>
+              <td>Autor → Libros</td>
+              <td><strong><code>ForeignKey</code></strong></td>
+            </tr>
+            <tr>
+              <td><code>Many-to-Many</code></td>
+              <td>Muchos ↔ muchos</td>
+              <td>Estudiantes ↔ Cursos</td>
+              <td><code>ManyToManyField</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout info">
+        <div class="callout-icon">💡</div>
+        <p>Las relaciones One-to-Many son, con diferencia, las más comunes en el desarrollo web. Prácticamente cualquier aplicación las usa: posts de un blog, comentarios de un usuario, productos de una categoría, pedidos de un cliente…</p>
+      </div>
+
+      <p>En Django, una relación One-to-Many se implementa con el campo <code>ForeignKey</code>, que siempre se coloca en el modelo del lado <em>"muchos"</em>.</p>
+    </section>
+
+    <!-- S2 -->
+    <section class="section" id="analogia">
+      <div class="section-tag">Sección 02</div>
+      <h2><span class="idx">02.</span>Ejemplos del mundo real</h2>
+
+      <p>La clave para identificar una relación One-to-Many es responder a: <em>"¿Puede un X tener muchos Y?"</em> y <em>"¿Pertenece cada Y a un único X?"</em>. Si ambas son SÍ, es One-to-Many.</p>
+
+      <div class="real-world">
+        <div class="rw-card">
+          <div class="rw-one">📝 Autor</div>
+          <div class="rw-arr">— tiene muchos →</div>
+          <div class="rw-many">📚 Libros</div>
+        </div>
+        <div class="rw-card">
+          <div class="rw-one">📂 Categoría</div>
+          <div class="rw-arr">— tiene muchos →</div>
+          <div class="rw-many">📰 Artículos</div>
+        </div>
+        <div class="rw-card">
+          <div class="rw-one">👤 Usuario</div>
+          <div class="rw-arr">— tiene muchos →</div>
+          <div class="rw-many">💬 Comentarios</div>
+        </div>
+        <div class="rw-card">
+          <div class="rw-one">🏢 Empresa</div>
+          <div class="rw-arr">— tiene muchos →</div>
+          <div class="rw-many">👷 Empleados</div>
+        </div>
+        <div class="rw-card">
+          <div class="rw-one">🛒 Pedido</div>
+          <div class="rw-arr">— tiene muchos →</div>
+          <div class="rw-many">📦 Líneas de pedido</div>
+        </div>
+        <div class="rw-card">
+          <div class="rw-one">📁 Proyecto</div>
+          <div class="rw-arr">— tiene muchos →</div>
+          <div class="rw-many">✅ Tareas</div>
+        </div>
+      </div>
+
+      <div class="callout note">
+        <div class="callout-icon">📌</div>
+        <p>Fíjate en la dirección: el FK siempre va en el lado <strong>"muchos"</strong>. Un libro tiene un autor (FK en Libro), no al revés. Piensa en ello como: <em>"¿Quién necesita saber a quién pertenece?"</em></p>
+      </div>
+    </section>
+
+    <!-- S3 -->
+    <section class="section" id="foreignkey">
+      <div class="section-tag">Sección 03</div>
+      <h2><span class="idx">03.</span>ForeignKey en Django</h2>
+
+      <p>Vamos a construir un blog sencillo con <strong>Autores</strong> y <strong>Posts</strong>. Un autor puede escribir muchos posts, pero cada post tiene un único autor.</p>
+
+      <h3 id="fk-params">Definir los modelos</h3>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">blog/models.py</span>
+          <span class="code-lang">Python · Django</span>
+        </div>
+        <pre><code><span class="kw">from</span> <span class="pl">django.db</span> <span class="kw">import</span> <span class="pl">models</span>
+
+
+<span class="kw">class</span> <span class="cl">Autor</span><span class="pl">(</span><span class="cl">models.Model</span><span class="pl">):</span>
+    <span class="pl">nombre</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">CharField</span><span class="pl">(max_length</span><span class="op">=</span><span class="nu">200</span><span class="pl">)</span>
+    <span class="pl">email</span>  <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">EmailField</span><span class="pl">(unique</span><span class="op">=</span><span class="kw">True</span><span class="pl">)</span>
+    <span class="pl">bio</span>    <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">TextField</span><span class="pl">(blank</span><span class="op">=</span><span class="kw">True</span><span class="pl">)</span>
+
+    <span class="kw">def</span> <span class="fn">__str__</span><span class="pl">(self):</span>
+        <span class="kw">return</span> <span class="pl">self</span><span class="op">.</span><span class="pl">nombre</span>
+
+
+<span class="kw">class</span> <span class="cl">Post</span><span class="pl">(</span><span class="cl">models.Model</span><span class="pl">):</span>
+    <span class="pl">titulo</span>    <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">CharField</span><span class="pl">(max_length</span><span class="op">=</span><span class="nu">300</span><span class="pl">)</span>
+    <span class="pl">contenido</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">TextField</span><span class="pl">()</span>
+    <span class="pl">publicado</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">BooleanField</span><span class="pl">(default</span><span class="op">=</span><span class="kw">True</span><span class="pl">)</span>
+    <span class="pl">creado_en</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">DateTimeField</span><span class="pl">(auto_now_add</span><span class="op">=</span><span class="kw">True</span><span class="pl">)</span>
+
+    <span class="cm"># 👇 Aquí está la clave: ForeignKey al Autor</span>
+    <span class="pl">autor</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">ForeignKey</span><span class="pl">(</span>
+        <span class="cl">Autor</span><span class="pl">,</span>
+        <span class="pl">on_delete</span><span class="op">=</span><span class="pl">models</span><span class="op">.</span><span class="cl">CASCADE</span><span class="pl">,</span>      <span class="cm"># si se borra el autor, se borran sus posts</span>
+        <span class="pl">related_name</span><span class="op">=</span><span class="st">'posts'</span><span class="pl">,</span>          <span class="cm"># autor.posts.all()</span>
+        <span class="pl">verbose_name</span><span class="op">=</span><span class="st">'Autor del post'</span>
+    <span class="pl">)</span>
+
+    <span class="kw">class</span> <span class="cl">Meta</span><span class="pl">:</span>
+        <span class="pl">ordering</span>      <span class="op">=</span> <span class="pl">[</span><span class="st">'-creado_en'</span><span class="pl">]</span>   <span class="cm"># más recientes primero</span>
+        <span class="pl">verbose_name</span>  <span class="op">=</span> <span class="st">'Post'</span>
+        <span class="pl">verbose_name_plural</span> <span class="op">=</span> <span class="st">'Posts'</span>
+
+    <span class="kw">def</span> <span class="fn">__str__</span><span class="pl">(self):</span>
+        <span class="kw">return</span> <span class="pl">self</span><span class="op">.</span><span class="pl">titulo</span></code></pre>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-icon">✅</div>
+        <p>El campo <code>autor</code> en <code>Post</code> crea automáticamente una columna <code>autor_id</code> en la base de datos (un número entero con la clave primaria del autor). Django gestiona esto de forma transparente.</p>
+      </div>
+
+      <h3>Parámetros principales de <code>ForeignKey</code></h3>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Parámetro</th><th>Obligatorio</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>to</code> (1er arg)</td><td>✅ Sí</td><td>Modelo al que apunta la FK</td></tr>
+            <tr><td><code>on_delete</code></td><td>✅ Sí</td><td>Qué hacer si se borra el padre</td></tr>
+            <tr><td><code>related_name</code></td><td>❌ No</td><td>Nombre del manager inverso</td></tr>
+            <tr><td><code>null=True</code></td><td>❌ No</td><td>Permite que el campo sea NULL</td></tr>
+            <tr><td><code>blank=True</code></td><td>❌ No</td><td>Permite campo vacío en formularios</td></tr>
+            <tr><td><code>db_index</code></td><td>❌ No</td><td>Crea índice (True por defecto)</td></tr>
+            <tr><td><code>limit_choices_to</code></td><td>❌ No</td><td>Filtra opciones en formularios/admin</td></tr>
+            <tr><td><code>to_field</code></td><td>❌ No</td><td>Campo del modelo padre al que apunta</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- S4 on_delete -->
+    <section class="section" id="on-delete">
+      <div class="section-tag">Sección 04</div>
+      <h2><span class="idx">04.</span><code>on_delete</code>: ¿qué pasa cuando se borra el padre?</h2>
+
+      <p><code>on_delete</code> es un parámetro <strong>obligatorio</strong> en todo <code>ForeignKey</code>. Define qué ocurre con los registros hijos cuando se elimina el registro padre. Es una decisión de diseño muy importante.</p>
+
+      <div class="on-delete-grid">
+        <div class="on-delete-row">
+          <div class="on-delete-key c1"><code>CASCADE</code></div>
+          <div class="on-delete-val">Borra también todos los hijos. <em>Si eliminas un autor, se borran todos sus posts.</em> El más usado.</div>
+        </div>
+        <div class="on-delete-row">
+          <div class="on-delete-key c2"><code>PROTECT</code></div>
+          <div class="on-delete-val">Lanza un error <code>ProtectedError</code> e impide el borrado mientras haya hijos. <em>No puedes borrar un autor si tiene posts.</em></div>
+        </div>
+        <div class="on-delete-row">
+          <div class="on-delete-key c3"><code>SET_NULL</code></div>
+          <div class="on-delete-val">Pone el campo a <code>NULL</code> en los hijos. Requiere <code>null=True</code> en el campo. <em>El post queda sin autor.</em></div>
+        </div>
+        <div class="on-delete-row">
+          <div class="on-delete-key c4"><code>SET_DEFAULT</code></div>
+          <div class="on-delete-val">Asigna el valor por defecto del campo. Requiere <code>default=...</code> en el campo.</div>
+        </div>
+        <div class="on-delete-row">
+          <div class="on-delete-key c5"><code>DO_NOTHING</code></div>
+          <div class="on-delete-val">No hace nada en Django (puede causar errores de integridad en la base de datos). Úsalo solo si gestionas la integridad a mano.</div>
+        </div>
+      </div>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">Ejemplos de on_delete</span>
+          <span class="code-lang">Python</span>
+        </div>
+        <pre><code><span class="cm"># CASCADE: borrar el padre borra los hijos (el más común)</span>
+<span class="pl">autor</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">ForeignKey</span><span class="pl">(Autor, on_delete</span><span class="op">=</span><span class="pl">models</span><span class="op">.</span><span class="cl">CASCADE</span><span class="pl">)</span>
+
+<span class="cm"># PROTECT: protege al padre, lanza error si intentas borrarle</span>
+<span class="pl">categoria</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">ForeignKey</span><span class="pl">(Categoria, on_delete</span><span class="op">=</span><span class="pl">models</span><span class="op">.</span><span class="cl">PROTECT</span><span class="pl">)</span>
+
+<span class="cm"># SET_NULL: el hijo queda huérfano (campo = NULL)</span>
+<span class="pl">revisor</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">ForeignKey</span><span class="pl">(</span>
+    <span class="cl">Usuario</span><span class="pl">,</span>
+    <span class="pl">on_delete</span><span class="op">=</span><span class="pl">models</span><span class="op">.</span><span class="cl">SET_NULL</span><span class="pl">,</span>
+    <span class="pl">null</span><span class="op">=</span><span class="kw">True</span><span class="pl">,</span>
+    <span class="pl">blank</span><span class="op">=</span><span class="kw">True</span>
+<span class="pl">)</span>
+
+<span class="cm"># SET_DEFAULT: asigna un valor por defecto</span>
+<span class="pl">departamento</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">ForeignKey</span><span class="pl">(</span>
+    <span class="cl">Departamento</span><span class="pl">,</span>
+    <span class="pl">on_delete</span><span class="op">=</span><span class="pl">models</span><span class="op">.</span><span class="cl">SET_DEFAULT</span><span class="pl">,</span>
+    <span class="pl">default</span><span class="op">=</span><span class="nu">1</span>   <span class="cm"># id del departamento "General"</span>
+<span class="pl">)</span></code></pre>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-icon">⚠️</div>
+        <p>Elige <code>on_delete</code> con cuidado según la lógica de negocio. <code>CASCADE</code> es el más práctico para contenido dependiente, pero <code>PROTECT</code> es más seguro cuando no quieres pérdida accidental de datos.</p>
+      </div>
+    </section>
+
+    <!-- S5 Migraciones -->
+    <section class="section" id="migraciones">
+      <div class="section-tag">Sección 05</div>
+      <h2><span class="idx">05.</span>Migraciones y estructura de tablas</h2>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">Terminal</span>
+          <span class="code-lang">Shell</span>
+        </div>
+        <pre><code><span class="cm"># 1. Generamos la migración</span>
+<span class="nb">python</span> manage.py makemigrations blog
+
+<span class="cm"># 2. La aplicamos</span>
+<span class="nb">python</span> manage.py migrate
+
+<span class="cm"># 3. (Opcional) Ver el SQL que genera Django</span>
+<span class="nb">python</span> manage.py sqlmigrate blog 0001</code></pre>
+      </div>
+
+      <p>A diferencia de Many-to-Many (que crea 3 tablas), <code>ForeignKey</code> solo genera <strong>2 tablas</strong>. La relación vive como una columna en la tabla del lado "muchos":</p>
+
+      <div class="diagram">
+        <div class="diagram-title">Estructura de tablas en la base de datos</div>
+        <div class="db-layout">
+          <div class="db-table">
+            <div class="db-table-head">blog_autor</div>
+            <div class="db-table-row"><span class="pk">PK</span> id</div>
+            <div class="db-table-row">nombre</div>
+            <div class="db-table-row">email</div>
+            <div class="db-table-row">bio</div>
+          </div>
+          <div class="db-conn">
+            <div class="db-conn-line">1</div>
+            <div class="db-arrow">→</div>
+            <div class="db-conn-line">∞</div>
+          </div>
+          <div class="db-table highlight">
+            <div class="db-table-head">blog_post</div>
+            <div class="db-table-row"><span class="pk">PK</span> id</div>
+            <div class="db-table-row">titulo</div>
+            <div class="db-table-row">contenido</div>
+            <div class="db-table-row">publicado</div>
+            <div class="db-table-row">creado_en</div>
+            <div class="db-table-row"><span class="fk">FK</span> autor_id</div>
+          </div>
+        </div>
+        <div style="margin-top:18px;font-family:'Fira Code',monospace;font-size:.72rem;color:var(--text-muted);text-align:center;">
+          La columna <span style="color:var(--accent4)">autor_id</span> en blog_post apunta al <span style="color:var(--accent3)">id</span> de blog_autor
+        </div>
+      </div>
+
+      <div class="callout info">
+        <div class="callout-icon">💡</div>
+        <p>Django nombra la columna FK añadiendo <code>_id</code> al nombre del campo. Si el campo se llama <code>autor</code>, la columna en la BD se llama <code>autor_id</code>. Puedes acceder al ID directamente con <code>post.autor_id</code> sin hacer una consulta a la base de datos.</p>
+      </div>
+    </section>
+
+    <!-- S6 Shell -->
+    <section class="section" id="shell">
+      <div class="section-tag">Sección 06</div>
+      <h2><span class="idx">06.</span>Operaciones básicas con el ORM</h2>
+
+      <h3>Crear objetos con ForeignKey</h3>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">Django Shell / views.py</span>
+          <span class="code-lang">Python</span>
+        </div>
+        <pre><code><span class="cm"># ── Crear autores ──</span>
+<span class="pl">pablo</span> <span class="op">=</span> <span class="cl">Autor</span><span class="op">.</span><span class="fn">objects.create</span><span class="pl">(nombre</span><span class="op">=</span><span class="st">"Pablo García"</span><span class="pl">, email</span><span class="op">=</span><span class="st">"pablo@blog.es"</span><span class="pl">)</span>
+<span class="pl">lucia</span> <span class="op">=</span> <span class="cl">Autor</span><span class="op">.</span><span class="fn">objects.create</span><span class="pl">(nombre</span><span class="op">=</span><span class="st">"Lucía Martín"</span><span class="pl">, email</span><span class="op">=</span><span class="st">"lucia@blog.es"</span><span class="pl">)</span>
+
+<span class="cm"># ── Crear posts vinculados a un autor ──</span>
+<span class="pl">p1</span> <span class="op">=</span> <span class="cl">Post</span><span class="op">.</span><span class="fn">objects.create</span><span class="pl">(</span>
+    <span class="pl">titulo</span>    <span class="op">=</span> <span class="st">"Introducción a Django"</span><span class="pl">,</span>
+    <span class="pl">contenido</span> <span class="op">=</span> <span class="st">"Django es un framework web..."</span><span class="pl">,</span>
+    <span class="pl">autor</span>     <span class="op">=</span> <span class="pl">pablo</span>    <span class="cm"># ← pasamos el objeto directamente</span>
+<span class="pl">)</span>
+
+<span class="pl">p2</span> <span class="op">=</span> <span class="cl">Post</span><span class="op">.</span><span class="fn">objects.create</span><span class="pl">(</span>
+    <span class="pl">titulo</span>    <span class="op">=</span> <span class="st">"ForeignKey explicado"</span><span class="pl">,</span>
+    <span class="pl">contenido</span> <span class="op">=</span> <span class="st">"Un ForeignKey es..."</span><span class="pl">,</span>
+    <span class="pl">autor_id</span>  <span class="op">=</span> <span class="pl">pablo</span><span class="op">.</span><span class="pl">id</span>  <span class="cm"># ← o pasamos el ID directamente (más eficiente)</span>
+<span class="pl">)</span>
+
+<span class="pl">p3</span> <span class="op">=</span> <span class="cl">Post</span><span class="op">.</span><span class="fn">objects.create</span><span class="pl">(titulo</span><span class="op">=</span><span class="st">"Python tips"</span><span class="pl">, contenido</span><span class="op">=</span><span class="st">"..."</span><span class="pl">, autor</span><span class="op">=</span><span class="pl">lucia)</span>
+
+<span class="cm"># ── Acceder al padre desde el hijo ──</span>
+<span class="fn">print</span><span class="pl">(p1</span><span class="op">.</span><span class="pl">autor)</span>         <span class="cm"># → Pablo García  (hace una query)</span>
+<span class="fn">print</span><span class="pl">(p1</span><span class="op">.</span><span class="pl">autor</span><span class="op">.</span><span class="pl">email)</span>   <span class="cm"># → pablo@blog.es</span>
+<span class="fn">print</span><span class="pl">(p1</span><span class="op">.</span><span class="pl">autor_id)</span>      <span class="cm"># → 1  (NO hace query, es un simple campo)</span>
+
+<span class="cm"># ── Cambiar el autor de un post ──</span>
+<span class="pl">p1</span><span class="op">.</span><span class="pl">autor</span> <span class="op">=</span> <span class="pl">lucia</span>
+<span class="pl">p1</span><span class="op">.</span><span class="fn">save</span><span class="pl">()</span>
+
+<span class="cm"># ── Borrar un post (no afecta al autor) ──</span>
+<span class="pl">p2</span><span class="op">.</span><span class="fn">delete</span><span class="pl">()</span>
+
+<span class="cm"># ── Borrar un autor (con CASCADE borra sus posts también) ──</span>
+<span class="pl">pablo</span><span class="op">.</span><span class="fn">delete</span><span class="pl">()</span>   <span class="cm"># ¡elimina pablo y todos sus posts!</span></code></pre>
+      </div>
+
+      <h3 id="manager">El Manager inverso: de padre a hijos</h3>
+      <p>La parte más potente de <code>ForeignKey</code> es que Django crea automáticamente un <strong>Manager inverso</strong> en el modelo padre que te permite acceder a todos los hijos desde el padre.</p>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">Manager inverso</span>
+          <span class="code-lang">Python</span>
+        </div>
+        <pre><code><span class="cm"># Con related_name='posts' definido → usamos autor.posts</span>
+<span class="pl">lucia</span><span class="op">.</span><span class="pl">posts</span><span class="op">.</span><span class="fn">all</span><span class="pl">()</span>
+<span class="cm"># &lt;QuerySet [&lt;Post: Python tips&gt;]&gt;</span>
+
+<span class="pl">lucia</span><span class="op">.</span><span class="pl">posts</span><span class="op">.</span><span class="fn">count</span><span class="pl">()</span>         <span class="cm"># → número de posts</span>
+<span class="pl">lucia</span><span class="op">.</span><span class="pl">posts</span><span class="op">.</span><span class="fn">filter</span><span class="pl">(publicado</span><span class="op">=</span><span class="kw">True</span><span class="pl">)</span>  <span class="cm"># posts publicados de Lucía</span>
+<span class="pl">lucia</span><span class="op">.</span><span class="pl">posts</span><span class="op">.</span><span class="fn">order_by</span><span class="pl">(</span><span class="st">'-creado_en'</span><span class="pl">)</span>  <span class="cm"># más recientes primero</span>
+<span class="pl">lucia</span><span class="op">.</span><span class="pl">posts</span><span class="op">.</span><span class="fn">exists</span><span class="pl">()</span>         <span class="cm"># → True si tiene algún post</span>
+
+<span class="cm"># Sin related_name → Django usa el nombre por defecto: modelo_set</span>
+<span class="pl">lucia</span><span class="op">.</span><span class="pl">post_set</span><span class="op">.</span><span class="fn">all</span><span class="pl">()</span>        <span class="cm"># funciona igual, pero es menos legible</span>
+
+<span class="cm"># También puedes crear hijos directamente desde el padre</span>
+<span class="pl">lucia</span><span class="op">.</span><span class="pl">posts</span><span class="op">.</span><span class="fn">create</span><span class="pl">(</span>
+    <span class="pl">titulo</span>    <span class="op">=</span> <span class="st">"Nuevo post de Lucía"</span><span class="pl">,</span>
+    <span class="pl">contenido</span> <span class="op">=</span> <span class="st">"Contenido aquí..."</span>
+<span class="pl">)</span>
+<span class="cm"># Equivale a Post.objects.create(titulo=..., autor=lucia)</span></code></pre>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-icon">✅</div>
+        <p>El Manager inverso (<code>autor.posts</code>) soporta exactamente los mismos métodos que <code>Post.objects</code>: <code>.all()</code>, <code>.filter()</code>, <code>.exclude()</code>, <code>.create()</code>, <code>.count()</code>, <code>.exists()</code>… Es igual de potente.</p>
+      </div>
+    </section>
+
+    <!-- S7 Consultas -->
+    <section class="section" id="consultas">
+      <div class="section-tag">Sección 07</div>
+      <h2><span class="idx">07.</span>Consultas avanzadas con ForeignKey</h2>
+
+      <p>Con el doble guión bajo <code>__</code>, Django permite navegar por las relaciones para filtrar, anotar y ordenar cruzando tablas sin escribir SQL.</p>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">Consultas ORM avanzadas</span>
+          <span class="code-lang">Python</span>
+        </div>
+        <pre><code><span class="kw">from</span> <span class="pl">django.db.models</span> <span class="kw">import</span> <span class="cl">Count</span><span class="pl">, Avg, Q</span>
+
+<span class="cm"># ── 1. Posts de un autor concreto (por nombre) ──</span>
+<span class="cl">Post</span><span class="op">.</span><span class="fn">objects.filter</span><span class="pl">(autor__nombre</span><span class="op">=</span><span class="st">"Lucía Martín"</span><span class="pl">)</span>
+
+<span class="cm"># ── 2. Posts de autores cuyo email termina en @blog.es ──</span>
+<span class="cl">Post</span><span class="op">.</span><span class="fn">objects.filter</span><span class="pl">(autor__email__endswith</span><span class="op">=</span><span class="st">"@blog.es"</span><span class="pl">)</span>
+
+<span class="cm"># ── 3. Autores con MÁS de 3 posts publicados ──</span>
+<span class="cl">Autor</span><span class="op">.</span><span class="fn">objects</span>\
+    <span class="op">.</span><span class="fn">annotate</span><span class="pl">(num_posts</span><span class="op">=</span><span class="fn">Count</span><span class="pl">(</span><span class="st">'posts'</span><span class="pl">))</span>\
+    <span class="op">.</span><span class="fn">filter</span><span class="pl">(num_posts__gt</span><span class="op">=</span><span class="nu">3</span><span class="pl">)</span>\
+    <span class="op">.</span><span class="fn">order_by</span><span class="pl">(</span><span class="st">'-num_posts'</span><span class="pl">)</span>
+
+<span class="cm"># ── 4. Autores SIN ningún post ──</span>
+<span class="cl">Autor</span><span class="op">.</span><span class="fn">objects.filter</span><span class="pl">(posts__isnull</span><span class="op">=</span><span class="kw">True</span><span class="pl">)</span>
+
+<span class="cm"># ── 5. Posts publicados de autores que tienen bio ──</span>
+<span class="cl">Post</span><span class="op">.</span><span class="fn">objects.filter</span><span class="pl">(</span>
+    <span class="pl">publicado</span><span class="op">=</span><span class="kw">True</span><span class="pl">,</span>
+    <span class="pl">autor__bio__gt</span><span class="op">=</span><span class="st">""</span>   <span class="cm"># bio no vacía</span>
+<span class="pl">)</span>
+
+<span class="cm"># ── 6. Posts de Lucía O sin autor asignado (FK nula) ──</span>
+<span class="cl">Post</span><span class="op">.</span><span class="fn">objects.filter</span><span class="pl">(</span>
+    <span class="fn">Q</span><span class="pl">(autor</span><span class="op">=</span><span class="pl">lucia) </span><span class="op">|</span> <span class="fn">Q</span><span class="pl">(autor__isnull</span><span class="op">=</span><span class="kw">True</span><span class="pl">)</span>
+<span class="pl">)</span>
+
+<span class="cm"># ── 7. Cada autor con el número de posts que tiene ──</span>
+<span class="pl">autores</span> <span class="op">=</span> <span class="cl">Autor</span><span class="op">.</span><span class="fn">objects.annotate</span><span class="pl">(</span>
+    <span class="pl">num_posts</span><span class="op">=</span><span class="fn">Count</span><span class="pl">(</span><span class="st">'posts'</span><span class="pl">)</span>
+<span class="pl">)</span>
+<span class="kw">for</span> <span class="pl">a</span> <span class="kw">in</span> <span class="pl">autores:</span>
+    <span class="fn">print</span><span class="pl">(</span><span class="nb">f</span><span class="st">"{a.nombre}: {a.num_posts} posts"</span><span class="pl">)</span>
+
+<span class="cm"># ── 8. Excluir posts del autor con id=5 ──</span>
+<span class="cl">Post</span><span class="op">.</span><span class="fn">objects.exclude</span><span class="pl">(autor_id</span><span class="op">=</span><span class="nu">5</span><span class="pl">)</span></code></pre>
+      </div>
+    </section>
+
+    <!-- S8 related_name -->
+    <section class="section" id="related-name">
+      <div class="section-tag">Sección 08</div>
+      <h2><span class="idx">08.</span><code>related_name</code>: el acceso inverso</h2>
+
+      <p>Cuando defines varias <code>ForeignKey</code> al mismo modelo, Django necesita nombres diferentes para cada Manager inverso. Ahí es donde <code>related_name</code> se vuelve <em>imprescindible</em>.</p>
+
+      <div class="compare-grid">
+        <div class="compare-card no">
+          <div class="compare-card-label">❌ Sin related_name</div>
+          <p>Django usa <code>post_set</code> por defecto. Si tienes dos FK al mismo modelo, habrá un conflicto y Django lanzará un error.</p>
+        </div>
+        <div class="compare-card yes">
+          <div class="compare-card-label">✅ Con related_name</div>
+          <p>Cada FK tiene su propio nombre descriptivo y no hay colisiones. El código es mucho más legible.</p>
+        </div>
+      </div>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">Ejemplo con múltiples FK al mismo modelo</span>
+          <span class="code-lang">Python</span>
+        </div>
+        <pre><code><span class="kw">class</span> <span class="cl">Articulo</span><span class="pl">(</span><span class="cl">models.Model</span><span class="pl">):</span>
+    <span class="pl">titulo</span>    <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">CharField</span><span class="pl">(max_length</span><span class="op">=</span><span class="nu">300</span><span class="pl">)</span>
+
+    <span class="cm"># Dos FK al mismo modelo Usuario → necesitamos related_name</span>
+    <span class="pl">autor</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">ForeignKey</span><span class="pl">(</span>
+        <span class="st">'auth.User'</span><span class="pl">,</span>
+        <span class="pl">on_delete</span><span class="op">=</span><span class="pl">models</span><span class="op">.</span><span class="cl">CASCADE</span><span class="pl">,</span>
+        <span class="pl">related_name</span><span class="op">=</span><span class="st">'articulos_escritos'</span>   <span class="cm"># user.articulos_escritos.all()</span>
+    <span class="pl">)</span>
+    <span class="pl">editor</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">ForeignKey</span><span class="pl">(</span>
+        <span class="st">'auth.User'</span><span class="pl">,</span>
+        <span class="pl">on_delete</span><span class="op">=</span><span class="pl">models</span><span class="op">.</span><span class="cl">SET_NULL</span><span class="pl">,</span>
+        <span class="pl">null</span><span class="op">=</span><span class="kw">True</span><span class="pl">, blank</span><span class="op">=</span><span class="kw">True</span><span class="pl">,</span>
+        <span class="pl">related_name</span><span class="op">=</span><span class="st">'articulos_editados'</span>   <span class="cm"># user.articulos_editados.all()</span>
+    <span class="pl">)</span>
+
+<span class="cm"># Uso:</span>
+<span class="pl">user</span><span class="op">.</span><span class="pl">articulos_escritos</span><span class="op">.</span><span class="fn">count</span><span class="pl">()</span>   <span class="cm"># cuántos artículos ha escrito</span>
+<span class="pl">user</span><span class="op">.</span><span class="pl">articulos_editados</span><span class="op">.</span><span class="fn">all</span><span class="pl">()</span>    <span class="cm"># artículos que ha editado</span>
+
+<span class="cm"># Si quieres que una FK no tenga manager inverso, usa '+' o related_name='+'</span>
+<span class="pl">creador</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">ForeignKey</span><span class="pl">(Usuario, on_delete</span><span class="op">=</span><span class="pl">models</span><span class="op">.</span><span class="cl">CASCADE</span><span class="pl">, related_name</span><span class="op">=</span><span class="st">'+'</span><span class="pl">)</span></code></pre>
+      </div>
+    </section>
+
+    <!-- S9 select_related -->
+    <section class="section" id="select-related">
+      <div class="section-tag">Sección 09</div>
+      <h2><span class="idx">09.</span>Optimización: <code>select_related</code></h2>
+
+      <p>Cuando accedes a la FK de un objeto Django, se lanza una nueva consulta SQL para traer el dato del padre. Si lo haces en un bucle sobre muchos objetos, esto puede generar cientos de consultas innecesarias. A esto se le llama el <strong>problema N+1</strong>.</p>
+
+      <div class="compare-grid">
+        <div class="compare-card no">
+          <div class="compare-card-label">❌ Problema N+1 (lento)</div>
+          <p>Si tienes 100 posts y accedes a <code>post.autor</code> en el bucle, Django hace <strong>101 consultas SQL</strong> (1 para los posts + 100 para cada autor).</p>
+        </div>
+        <div class="compare-card yes">
+          <div class="compare-card-label">✅ Con select_related (rápido)</div>
+          <p>Django hace un <strong>JOIN</strong> y trae todos los datos en <strong>1 sola consulta SQL</strong>. Mucho más eficiente.</p>
+        </div>
+      </div>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">select_related en acción</span>
+          <span class="code-lang">Python</span>
+        </div>
+        <pre><code><span class="cm"># ❌ MAL: genera N+1 consultas</span>
+<span class="pl">posts</span> <span class="op">=</span> <span class="cl">Post</span><span class="op">.</span><span class="fn">objects.all</span><span class="pl">()</span>
+<span class="kw">for</span> <span class="pl">post</span> <span class="kw">in</span> <span class="pl">posts:</span>
+    <span class="cm"># 💥 Cada acceso a post.autor lanza una nueva query</span>
+    <span class="fn">print</span><span class="pl">(post</span><span class="op">.</span><span class="pl">titulo</span><span class="pl">, post</span><span class="op">.</span><span class="pl">autor</span><span class="op">.</span><span class="pl">nombre</span><span class="pl">)</span>
+
+
+<span class="cm"># ✅ BIEN: select_related → 1 sola query con JOIN</span>
+<span class="pl">posts</span> <span class="op">=</span> <span class="cl">Post</span><span class="op">.</span><span class="fn">objects.select_related</span><span class="pl">(</span><span class="st">'autor'</span><span class="pl">)</span>
+<span class="kw">for</span> <span class="pl">post</span> <span class="kw">in</span> <span class="pl">posts:</span>
+    <span class="cm"># ✅ autor ya está en memoria, no hay query extra</span>
+    <span class="fn">print</span><span class="pl">(post</span><span class="op">.</span><span class="pl">titulo</span><span class="pl">, post</span><span class="op">.</span><span class="pl">autor</span><span class="op">.</span><span class="pl">nombre</span><span class="pl">)</span>
+
+
+<span class="cm"># También puedes encadenar relaciones</span>
+<span class="pl">posts</span> <span class="op">=</span> <span class="cl">Post</span><span class="op">.</span><span class="fn">objects.select_related</span><span class="pl">(</span><span class="st">'autor'</span><span class="pl">,</span> <span class="st">'categoria'</span><span class="pl">)</span>
+
+<span class="cm"># O navegar relaciones anidadas</span>
+<span class="cm"># (ej: post → autor → empresa)</span>
+<span class="pl">posts</span> <span class="op">=</span> <span class="cl">Post</span><span class="op">.</span><span class="fn">objects.select_related</span><span class="pl">(</span><span class="st">'autor__empresa'</span><span class="pl">)</span></code></pre>
+      </div>
+
+      <div class="callout info">
+        <div class="callout-icon">💡</div>
+        <p><strong>Regla de oro:</strong> usa <code>select_related()</code> siempre que vayas a acceder a una FK dentro de un bucle. Para relaciones M2M o relaciones inversas (de uno a muchos), usa <code>prefetch_related()</code>.</p>
+      </div>
+    </section>
+
+    <!-- S10 Formularios -->
+    <section class="section" id="formularios">
+      <div class="section-tag">Sección 10</div>
+      <h2><span class="idx">10.</span>ForeignKey en formularios</h2>
+
+      <p>Django convierte automáticamente los campos <code>ForeignKey</code> en un <code>&lt;select&gt;</code> (desplegable) en los formularios. Veamos cómo trabajar con ellos.</p>
+
+      <h3>ModelForm con ForeignKey</h3>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">blog/forms.py</span>
+          <span class="code-lang">Python · Django Forms</span>
+        </div>
+        <pre><code><span class="kw">from</span> <span class="pl">django</span> <span class="kw">import</span> <span class="pl">forms</span>
+<span class="kw">from</span> <span class="pl">.models</span> <span class="kw">import</span> <span class="pl">Post, Autor</span>
+
+
+<span class="kw">class</span> <span class="cl">PostForm</span><span class="pl">(</span><span class="cl">forms.ModelForm</span><span class="pl">):</span>
+    <span class="kw">class</span> <span class="cl">Meta</span><span class="pl">:</span>
+        <span class="pl">model</span>  <span class="op">=</span> <span class="cl">Post</span>
+        <span class="pl">fields</span> <span class="op">=</span> <span class="pl">[</span><span class="st">'titulo'</span><span class="pl">,</span> <span class="st">'contenido'</span><span class="pl">,</span> <span class="st">'autor'</span><span class="pl">,</span> <span class="st">'publicado'</span><span class="pl">]</span>
+        <span class="cm"># Django genera un &lt;select&gt; automáticamente para el campo 'autor'</span>
+
+    <span class="kw">def</span> <span class="fn">__init__</span><span class="pl">(self, *args, **kwargs):</span>
+        <span class="fn">super</span><span class="pl">()</span><span class="op">.</span><span class="fn">__init__</span><span class="pl">(*args, **kwargs)</span>
+        <span class="cm"># Personalizar el queryset del select</span>
+        <span class="pl">self</span><span class="op">.</span><span class="pl">fields</span><span class="pl">[</span><span class="st">'autor'</span><span class="pl">]</span><span class="op">.</span><span class="pl">queryset</span> <span class="op">=</span> <span class="cl">Autor</span><span class="op">.</span><span class="fn">objects.order_by</span><span class="pl">(</span><span class="st">'nombre'</span><span class="pl">)</span>
+        <span class="pl">self</span><span class="op">.</span><span class="pl">fields</span><span class="pl">[</span><span class="st">'autor'</span><span class="pl">]</span><span class="op">.</span><span class="pl">label</span>    <span class="op">=</span> <span class="st">"Selecciona el autor"</span>
+        <span class="pl">self</span><span class="op">.</span><span class="pl">fields</span><span class="pl">[</span><span class="st">'autor'</span><span class="pl">]</span><span class="op">.</span><span class="pl">empty_label</span> <span class="op">=</span> <span class="st">"-- Elige un autor --"</span>
+
+
+<span class="cm"># ── En la vista ──</span>
+<span class="kw">from</span> <span class="pl">django.shortcuts</span> <span class="kw">import</span> <span class="pl">render, redirect</span>
+
+<span class="kw">def</span> <span class="fn">crear_post</span><span class="pl">(request):</span>
+    <span class="kw">if</span> <span class="pl">request</span><span class="op">.</span><span class="pl">method</span> <span class="op">==</span> <span class="st">'POST'</span><span class="pl">:</span>
+        <span class="pl">form</span> <span class="op">=</span> <span class="cl">PostForm</span><span class="pl">(request</span><span class="op">.</span><span class="pl">POST</span><span class="pl">)</span>
+        <span class="kw">if</span> <span class="pl">form</span><span class="op">.</span><span class="fn">is_valid</span><span class="pl">():</span>
+            <span class="pl">form</span><span class="op">.</span><span class="fn">save</span><span class="pl">()</span>
+            <span class="kw">return</span> <span class="fn">redirect</span><span class="pl">(</span><span class="st">'lista_posts'</span><span class="pl">)</span>
+    <span class="kw">else</span><span class="pl">:</span>
+        <span class="pl">form</span> <span class="op">=</span> <span class="cl">PostForm</span><span class="pl">()</span>
+    <span class="kw">return</span> <span class="fn">render</span><span class="pl">(request,</span> <span class="st">'crear_post.html'</span><span class="pl">, {</span><span class="st">'form'</span><span class="pl">: form})</span></code></pre>
+      </div>
+    </section>
+
+    <!-- S11 Admin -->
+    <section class="section" id="admin">
+      <div class="section-tag">Sección 11</div>
+      <h2><span class="idx">11.</span>ForeignKey en el Admin de Django</h2>
+
+      <p>El Admin de Django reconoce los campos FK y los muestra como desplegables. Con un poco de configuración puedes hacerlo mucho más usable.</p>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">blog/admin.py</span>
+          <span class="code-lang">Python · Django Admin</span>
+        </div>
+        <pre><code><span class="kw">from</span> <span class="pl">django.contrib</span> <span class="kw">import</span> <span class="pl">admin</span>
+<span class="kw">from</span> <span class="pl">.models</span> <span class="kw">import</span> <span class="pl">Autor, Post</span>
+
+
+<span class="kw">class</span> <span class="cl">PostInline</span><span class="pl">(</span><span class="cl">admin.TabularInline</span><span class="pl">):</span>
+    <span class="st">"""Muestra los posts directamente dentro del Autor."""</span>
+    <span class="pl">model</span>               <span class="op">=</span> <span class="cl">Post</span>
+    <span class="pl">extra</span>               <span class="op">=</span> <span class="nu">1</span>
+    <span class="pl">fields</span>              <span class="op">=</span> <span class="pl">[</span><span class="st">'titulo'</span><span class="pl">,</span> <span class="st">'publicado'</span><span class="pl">,</span> <span class="st">'creado_en'</span><span class="pl">]</span>
+    <span class="pl">readonly_fields</span>     <span class="op">=</span> <span class="pl">[</span><span class="st">'creado_en'</span><span class="pl">]</span>
+    <span class="pl">show_change_link</span>    <span class="op">=</span> <span class="kw">True</span>
+
+
+<span class="dc">@admin.register(Autor)</span>
+<span class="kw">class</span> <span class="cl">AutorAdmin</span><span class="pl">(</span><span class="cl">admin.ModelAdmin</span><span class="pl">):</span>
+    <span class="pl">list_display</span>  <span class="op">=</span> <span class="pl">[</span><span class="st">'nombre'</span><span class="pl">,</span> <span class="st">'email'</span><span class="pl">,</span> <span class="st">'num_posts'</span><span class="pl">]</span>
+    <span class="pl">search_fields</span> <span class="op">=</span> <span class="pl">[</span><span class="st">'nombre'</span><span class="pl">,</span> <span class="st">'email'</span><span class="pl">]</span>
+    <span class="pl">inlines</span>       <span class="op">=</span> <span class="pl">[</span><span class="cl">PostInline</span><span class="pl">]</span>   <span class="cm"># los posts aparecen dentro del autor</span>
+
+    <span class="dc">@admin.display</span><span class="pl">(description</span><span class="op">=</span><span class="st">'Nº Posts'</span><span class="pl">, ordering</span><span class="op">=</span><span class="st">'posts__count'</span><span class="pl">)</span>
+    <span class="kw">def</span> <span class="fn">num_posts</span><span class="pl">(self, obj):</span>
+        <span class="kw">return</span> <span class="pl">obj</span><span class="op">.</span><span class="pl">posts</span><span class="op">.</span><span class="fn">count</span><span class="pl">()</span>
+
+
+<span class="dc">@admin.register(Post)</span>
+<span class="kw">class</span> <span class="cl">PostAdmin</span><span class="pl">(</span><span class="cl">admin.ModelAdmin</span><span class="pl">):</span>
+    <span class="pl">list_display</span>    <span class="op">=</span> <span class="pl">[</span><span class="st">'titulo'</span><span class="pl">,</span> <span class="st">'autor'</span><span class="pl">,</span> <span class="st">'publicado'</span><span class="pl">,</span> <span class="st">'creado_en'</span><span class="pl">]</span>
+    <span class="pl">list_filter</span>     <span class="op">=</span> <span class="pl">[</span><span class="st">'publicado'</span><span class="pl">,</span> <span class="st">'autor'</span><span class="pl">]</span>
+    <span class="pl">search_fields</span>   <span class="op">=</span> <span class="pl">[</span><span class="st">'titulo'</span><span class="pl">,</span> <span class="st">'autor__nombre'</span><span class="pl">]</span>
+    <span class="pl">raw_id_fields</span>   <span class="op">=</span> <span class="pl">[</span><span class="st">'autor'</span><span class="pl">]</span>   <span class="cm"># útil si hay miles de autores</span>
+    <span class="pl">list_select_related</span> <span class="op">=</span> <span class="pl">[</span><span class="st">'autor'</span><span class="pl">]</span>  <span class="cm"># select_related automático en el listado</span></code></pre>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-icon">✅</div>
+        <p><code>raw_id_fields</code> es muy útil cuando la tabla relacionada tiene muchos registros. En vez de cargar un <code>&lt;select&gt;</code> enorme, muestra un campo de texto con un botón de búsqueda.</p>
+      </div>
+    </section>
+
+    <!-- S12 Errores comunes -->
+    <section class="section" id="errores">
+      <div class="section-tag">Sección 12</div>
+      <h2><span class="idx">12.</span>Errores comunes y cómo evitarlos</h2>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">!</div>
+          <div class="step-body">
+            <h4>Olvidar <code>on_delete</code></h4>
+            <p>Es obligatorio desde Django 2.0. Si lo omites, obtienes un <code>TypeError</code>. Siempre especifícalo explícitamente.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">!</div>
+          <div class="step-body">
+            <h4>El problema N+1 en bucles</h4>
+            <p>Acceder a <code>post.autor</code> dentro de un bucle sin <code>select_related</code> lanza una query por cada iteración. Usa siempre <code>.select_related('autor')</code> al consultar.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">!</div>
+          <div class="step-body">
+            <h4>Colisión de <code>related_name</code></h4>
+            <p>Si tienes dos FK al mismo modelo sin <code>related_name</code>, Django lanzará un error de validación. Siempre define <code>related_name</code> único para cada FK.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">!</div>
+          <div class="step-body">
+            <h4>Referenciar el modelo antes de definirlo</h4>
+            <p>Si el modelo al que apunta la FK está definido <em>después</em> en el mismo fichero, usa el nombre como string: <code>ForeignKey('MiModelo', ...)</code> en vez del objeto de clase directamente.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">!</div>
+          <div class="step-body">
+            <h4>FK nullable sin <code>null=True</code></h4>
+            <p>Si quieres que un campo FK pueda estar vacío (opcional), debes añadir <code>null=True, blank=True</code>. Sin <code>null=True</code> no puede guardarse como NULL en la BD.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">Referencia circular (string forward reference)</span>
+          <span class="code-lang">Python</span>
+        </div>
+        <pre><code><span class="cm"># ❌ Error si Categoria se define DESPUÉS de Post</span>
+<span class="kw">class</span> <span class="cl">Post</span><span class="pl">(</span><span class="cl">models.Model</span><span class="pl">):</span>
+    <span class="pl">categoria</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">ForeignKey</span><span class="pl">(Categoria, ...)</span>  <span class="cm"># NameError!</span>
+
+
+<span class="cm"># ✅ Correcto: usar string con el nombre del modelo</span>
+<span class="kw">class</span> <span class="cl">Post</span><span class="pl">(</span><span class="cl">models.Model</span><span class="pl">):</span>
+    <span class="pl">categoria</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">ForeignKey</span><span class="pl">(</span><span class="st">'Categoria'</span><span class="pl">, on_delete</span><span class="op">=</span><span class="pl">models</span><span class="op">.</span><span class="cl">CASCADE</span><span class="pl">)</span>
+
+<span class="cm"># Si el modelo está en otra app, incluye el nombre de la app</span>
+<span class="kw">class</span> <span class="cl">Comentario</span><span class="pl">(</span><span class="cl">models.Model</span><span class="pl">):</span>
+    <span class="pl">usuario</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">ForeignKey</span><span class="pl">(</span><span class="st">'auth.User'</span><span class="pl">, on_delete</span><span class="op">=</span><span class="pl">models</span><span class="op">.</span><span class="cl">CASCADE</span><span class="pl">)</span></code></pre>
+      </div>
+    </section>
+
+    <!-- S13 Buenas prácticas -->
+    <section class="section" id="buenas-practicas">
+      <div class="section-tag">Sección 13</div>
+      <h2><span class="idx">13.</span>Buenas prácticas</h2>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h4>Define siempre <code>related_name</code></h4>
+            <p>Aunque sea opcional, un buen <code>related_name</code> hace tu código mucho más legible. Usa el nombre en plural del modelo hijo: <code>related_name='posts'</code>, <code>related_name='comentarios'</code>.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h4>Usa <code>select_related</code> en tus vistas de listado</h4>
+            <p>Cualquier vista que muestre una lista de objetos y acceda a sus FK debe usar <code>select_related</code>. Tu base de datos te lo agradecerá.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h4>Elige <code>on_delete</code> según la lógica de tu aplicación</h4>
+            <p>No uses <code>CASCADE</code> por defecto sin pensar. En algunos casos <code>PROTECT</code> o <code>SET_NULL</code> son más apropiados y evitan pérdidas de datos accidentales.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h4>Accede a <code>autor_id</code> en vez de <code>autor.id</code></h4>
+            <p>Si solo necesitas el ID del padre (para comparar o guardar), usa <code>post.autor_id</code> directamente. Evitas una consulta a la base de datos innecesaria.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <h4>Usa strings para referencias hacia adelante o a otras apps</h4>
+            <p>Cuando el modelo al que apuntas está en otra app o se define después, usa siempre el formato string: <code>'app_name.ModelName'</code> o <code>'ModelName'</code>.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">6</div>
+          <div class="step-body">
+            <h4>Añade <code>db_index=False</code> solo si tienes razón</h4>
+            <p>Por defecto, Django crea un índice en cada FK (para acelerar JOINs). Solo desactívalo (<code>db_index=False</code>) si tienes una razón muy específica de rendimiento.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr>
+
+    <!-- QUIZ -->
+    <section class="section" id="quiz">
+      <div class="section-tag">Sección 14</div>
+      <h2><span class="idx">14.</span>Mini Quiz de Comprobación</h2>
+      <p>Pon a prueba lo que has aprendido con estas preguntas:</p>
+
+      <div class="quiz">
+        <div class="quiz-header">🧠 Test Rápido — One-to-Many</div>
+
+        <div class="quiz-q">
+          <p><strong>1.</strong> En una relación One-to-Many entre <code>Autor</code> y <code>Post</code>, ¿en cuál de los dos modelos se coloca el <code>ForeignKey</code>?</p>
+          <label><input type="radio" name="q1" value="a"> En el modelo <code>Autor</code></label>
+          <label><input type="radio" name="q1" value="b"> En el modelo <code>Post</code> (el lado "muchos")</label>
+          <label><input type="radio" name="q1" value="c"> En los dos modelos a la vez</label>
+        </div>
+
+        <div class="quiz-q">
+          <p><strong>2.</strong> ¿Cuántas tablas crea Django cuando defines un <code>ForeignKey</code> entre dos modelos?</p>
+          <label><input type="radio" name="q2" value="a"> 1 tabla con todos los datos juntos</label>
+          <label><input type="radio" name="q2" value="b"> 3 tablas, incluyendo una pivot</label>
+          <label><input type="radio" name="q2" value="c"> 2 tablas: una por modelo. La FK es solo una columna adicional.</label>
+        </div>
+
+        <div class="quiz-q">
+          <p><strong>3.</strong> Si defines <code>on_delete=models.CASCADE</code> y borras un <code>Autor</code>, ¿qué ocurre con sus <code>Post</code>s?</p>
+          <label><input type="radio" name="q3" value="a"> Los posts quedan con el campo autor a NULL</label>
+          <label><input type="radio" name="q3" value="b"> Django lanza un error e impide el borrado</label>
+          <label><input type="radio" name="q3" value="c"> Los posts se borran también automáticamente</label>
+        </div>
+
+        <div class="quiz-q">
+          <p><strong>4.</strong> ¿Cuál es la forma más eficiente de acceder al nombre del autor de cada post en un bucle?</p>
+          <label><input type="radio" name="q4" value="a"> <code>Post.objects.all()</code> y dentro del bucle <code>post.autor.nombre</code></label>
+          <label><input type="radio" name="q4" value="b"> <code>Post.objects.select_related('autor')</code> y dentro del bucle <code>post.autor.nombre</code></label>
+          <label><input type="radio" name="q4" value="c"> <code>Post.objects.prefetch_related('autor')</code></label>
+        </div>
+
+        <div class="quiz-q">
+          <p><strong>5.</strong> Si tienes <code>related_name='posts'</code> en el FK, ¿cómo obtienes todos los posts de un autor?</p>
+          <label><input type="radio" name="q5" value="a"> <code>Post.objects.filter(autor=autor)</code> — es la única forma</label>
+          <label><input type="radio" name="q5" value="b"> <code>autor.posts.all()</code></label>
+          <label><input type="radio" name="q5" value="c"> <code>autor.get_posts()</code></label>
+        </div>
+
+        <button class="quiz-btn" onclick="checkQuiz()">Comprobar respuestas ✓</button>
+        <div class="quiz-result" id="quiz-result"></div>
+      </div>
+    </section>
+
+    <!-- RESUMEN -->
+    <section class="section" id="resumen">
+      <div class="section-tag">Sección 15</div>
+      <h2><span class="idx">15.</span>Resumen final</h2>
+
+      <p>Has completado la guía de relaciones One-to-Many en Django. Aquí tienes un resumen de los conceptos clave:</p>
+
+      <div class="summary-grid">
+        <div class="sum-card">
+          <div class="sum-card-ico">🔑</div>
+          <h4>ForeignKey</h4>
+          <p>El campo que define la relación. Siempre va en el modelo del lado "muchos". Crea una columna <code>campo_id</code> en la BD.</p>
+        </div>
+        <div class="sum-card">
+          <div class="sum-card-ico">💥</div>
+          <h4>on_delete</h4>
+          <p>Parámetro obligatorio. Define qué pasa con los hijos cuando se borra el padre: CASCADE, PROTECT, SET_NULL…</p>
+        </div>
+        <div class="sum-card">
+          <div class="sum-card-ico">↩️</div>
+          <h4>related_name</h4>
+          <p>Nombre del manager inverso. Permite navegar desde el padre a sus hijos con <code>autor.posts.all()</code>.</p>
+        </div>
+        <div class="sum-card">
+          <div class="sum-card-ico">⚡</div>
+          <h4>select_related</h4>
+          <p>Optimización esencial: hace un JOIN y evita el problema N+1 al acceder a FK en bucles.</p>
+        </div>
+        <div class="sum-card">
+          <div class="sum-card-ico">🔢</div>
+          <h4>campo_id</h4>
+          <p>Django crea <code>autor_id</code> automáticamente. Acceder a él directamente es más rápido que acceder a <code>autor.id</code>.</p>
+        </div>
+        <div class="sum-card">
+          <div class="sum-card-ico">📋</div>
+          <h4>Manager inverso</h4>
+          <p>Desde el padre puedes usar <code>.all()</code>, <code>.filter()</code>, <code>.count()</code>, <code>.create()</code>… como con cualquier Manager.</p>
+        </div>
+      </div>
+
+      <div class="callout tip" style="margin-top:30px">
+        <div class="callout-icon">🚀</div>
+        <p><strong>¿Cuál es el siguiente paso?</strong> Practica creando tu propia app con ForeignKey: un sistema de comentarios para un blog, un gestor de tareas por proyecto, o un catálogo de productos por categoría. ¡El ORM de Django se vuelve muy potente cuando lo usas con soltura!</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  Creado con ❤️ para el aprendizaje de Django &nbsp;·&nbsp; <strong>One-to-Many · ForeignKey</strong> &nbsp;·&nbsp; Curso de Informática
+</footer>
+
+<script>
+  // ── PROGRESS BAR ──
+  const bar = document.getElementById('progress-bar');
+  window.addEventListener('scroll', () => {
+    const h = document.documentElement;
+    const pct = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100;
+    bar.style.width = pct + '%';
+  });
+
+  // ── SIDEBAR ACTIVE LINK ──
+  const sections = document.querySelectorAll('section[id]');
+  const links    = document.querySelectorAll('.sidebar nav a');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = document.querySelector(`.sidebar nav a[href="#${e.target.id}"]`);
+        if (a) a.classList.add('active');
+      }
+    });
+  }, { threshold: 0.25 });
+  sections.forEach(s => obs.observe(s));
+
+  // ── QUIZ ──
+  function checkQuiz() {
+    const answers = { q1: 'b', q2: 'c', q3: 'c', q4: 'b', q5: 'b' };
+    let correct = 0;
+    const total = Object.keys(answers).length;
+    for (const [q, ans] of Object.entries(answers)) {
+      const sel = document.querySelector(`input[name="${q}"]:checked`);
+      if (sel && sel.value === ans) correct++;
+    }
+    const res = document.getElementById('quiz-result');
+    res.style.display = 'block';
+    if (correct === total) {
+      res.className = 'quiz-result ok';
+      res.textContent = `✅ ¡Perfecto! ${correct}/${total} respuestas correctas. ¡Dominas las relaciones One-to-Many en Django!`;
+    } else if (correct >= 3) {
+      res.className = 'quiz-result mid';
+      res.textContent = `👍 Bien: ${correct}/${total} correctas. Repasa las secciones correspondientes a los fallos para afianzarlo.`;
+    } else {
+      res.className = 'quiz-result err';
+      res.textContent = `📚 ${correct}/${total} correctas. Te recomendamos repasar la lección con calma. ¡Tú puedes!`;
+    }
+  }
+</script>
+</body>
+</html>
