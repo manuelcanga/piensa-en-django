@@ -1,0 +1,1777 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relaciones One-to-One en Django</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&family=Spectral:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #09090f;
+    --surface:   #10101c;
+    --surface2:  #17172a;
+    --surface3:  #1e1e38;
+    --border:    #252540;
+    --accent:    #a78bfa;   /* violet */
+    --accent2:   #fb923c;   /* orange */
+    --accent3:   #38bdf8;   /* sky */
+    --accent4:   #4ade80;   /* green */
+    --accent5:   #f472b6;   /* pink */
+    --text:      #e4e4f0;
+    --text-muted:#5c5c8a;
+    --code-bg:   #07070f;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Spectral', Georgia, serif;
+    font-size: 16.5px;
+    line-height: 1.9;
+    overflow-x: hidden;
+  }
+
+  /* ── PROGRESS ── */
+  #progress-bar {
+    position: fixed; top: 0; left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent5), var(--accent2));
+    z-index: 200;
+    transition: width .1s linear;
+    width: 0%;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    padding: 100px 40px 80px;
+    text-align: center;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border);
+    isolation: isolate;
+  }
+
+  /* Animated rings */
+  .hero-rings {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid;
+    transform: translate(-50%, -50%);
+    animation: pulse 4s ease-in-out infinite;
+  }
+  .ring:nth-child(1) { width: 200px; height: 200px; border-color: rgba(167,139,250,.15); animation-delay: 0s; }
+  .ring:nth-child(2) { width: 380px; height: 380px; border-color: rgba(167,139,250,.10); animation-delay: .6s; }
+  .ring:nth-child(3) { width: 560px; height: 560px; border-color: rgba(167,139,250,.06); animation-delay: 1.2s; }
+  .ring:nth-child(4) { width: 740px; height: 740px; border-color: rgba(167,139,250,.03); animation-delay: 1.8s; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+    50%       { opacity: .5; transform: translate(-50%,-50%) scale(1.04); }
+  }
+
+  /* Grid overlay */
+  .hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(167,139,250,.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(167,139,250,.035) 1px, transparent 1px);
+    background-size: 36px 36px;
+    z-index: 0;
+  }
+  /* Glow */
+  .hero::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 60% 55% at 50% 50%, rgba(167,139,250,.12) 0%, transparent 70%);
+    z-index: 0;
+  }
+
+  .hero-inner { position: relative; z-index: 1; }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(167,139,250,.08);
+    border: 1px solid rgba(167,139,250,.28);
+    border-radius: 4px;
+    padding: 7px 18px;
+    margin-bottom: 32px;
+  }
+  .hero-badge-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: blink 1.4s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+  .hero h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(2.5rem, 6vw, 4.2rem);
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -.03em;
+    margin-bottom: 24px;
+  }
+  .hero h1 .top  { display: block; color: var(--text); }
+  .hero h1 .mid  {
+    display: block;
+    background: linear-gradient(90deg, var(--accent), var(--accent5));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero h1 .bot  { display: block; color: var(--text); }
+
+  .hero-sub {
+    font-size: 1rem;
+    color: var(--text-muted);
+    max-width: 500px;
+    margin: 0 auto 40px;
+    font-style: italic;
+    font-weight: 300;
+  }
+
+  .hero-tags {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .htag {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 5px 14px;
+  }
+  .htag b { color: var(--accent); font-weight: 700; }
+
+  /* ── LAYOUT ── */
+  .page-grid {
+    display: grid;
+    grid-template-columns: 252px 1fr;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  @media (max-width: 900px) {
+    .page-grid { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    position: sticky; top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+    padding: 36px 20px;
+  }
+  .sb-head {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: .25em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    padding: 0 8px;
+  }
+  .sidebar nav a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin-bottom: 1px;
+    transition: all .18s;
+    border-left: 2px solid transparent;
+  }
+  .sidebar nav a::before {
+    content: '';
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+    opacity: .4;
+    transition: opacity .18s;
+  }
+  .sidebar nav a:hover,
+  .sidebar nav a.active {
+    color: var(--accent);
+    border-left-color: var(--accent);
+    background: rgba(167,139,250,.07);
+    padding-left: 14px;
+  }
+  .sidebar nav a:hover::before,
+  .sidebar nav a.active::before { opacity: 1; background: var(--accent); }
+
+  .sidebar nav a.sub {
+    font-size: 11.5px;
+    font-weight: 400;
+    padding-left: 22px;
+    opacity: .8;
+  }
+  .sidebar nav a.sub:hover,
+  .sidebar nav a.sub.active { padding-left: 26px; }
+
+  .sb-sep {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 10px 0;
+  }
+
+  /* ── CONTENT ── */
+  .content {
+    padding: 56px 64px 100px;
+    max-width: 850px;
+  }
+  @media (max-width: 700px) { .content { padding: 30px 20px 70px; } }
+
+  /* ── SECTIONS ── */
+  .section {
+    margin-bottom: 72px;
+    opacity: 0;
+    transform: translateY(18px);
+    animation: up .5s ease forwards;
+  }
+  .section:nth-child(1)  { animation-delay:.04s }
+  .section:nth-child(2)  { animation-delay:.09s }
+  .section:nth-child(3)  { animation-delay:.14s }
+  .section:nth-child(4)  { animation-delay:.19s }
+  .section:nth-child(5)  { animation-delay:.24s }
+  .section:nth-child(6)  { animation-delay:.29s }
+  .section:nth-child(7)  { animation-delay:.34s }
+  .section:nth-child(8)  { animation-delay:.39s }
+  .section:nth-child(9)  { animation-delay:.44s }
+  .section:nth-child(10) { animation-delay:.49s }
+  .section:nth-child(11) { animation-delay:.54s }
+  .section:nth-child(12) { animation-delay:.59s }
+  .section:nth-child(13) { animation-delay:.64s }
+  @keyframes up { to { opacity:1; transform:none; } }
+
+  .sec-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .sec-label::after {
+    content: '';
+    height: 1px;
+    flex: 1;
+    background: linear-gradient(90deg, var(--accent), transparent);
+    max-width: 80px;
+    opacity: .4;
+  }
+
+  h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.9rem;
+    font-weight: 700;
+    line-height: 1.18;
+    margin-bottom: 24px;
+    scroll-margin-top: 32px;
+    letter-spacing: -.02em;
+  }
+  h2 .n {
+    font-family: 'Space Mono', monospace;
+    font-size: .8rem;
+    color: var(--accent);
+    font-weight: 400;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.08rem;
+    font-weight: 600;
+    color: var(--accent2);
+    margin: 38px 0 14px;
+    scroll-margin-top: 32px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h3::before {
+    content: '▶';
+    font-size: .5rem;
+    color: var(--accent2);
+    opacity: .7;
+  }
+
+  h4 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: .96rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  p { margin-bottom: 18px; }
+  p:last-child { margin-bottom: 0; }
+  strong { color: var(--accent2); font-weight: 600; }
+  em { color: var(--accent3); font-style: italic; }
+
+  ul, ol { margin: 14px 0 18px 26px; }
+  li { margin-bottom: 8px; }
+
+  /* ── CALLOUTS ── */
+  .callout {
+    border-radius: 8px;
+    padding: 15px 20px;
+    margin: 22px 0;
+    font-size: .91rem;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .callout-ico { font-size: 1rem; flex-shrink: 0; margin-top: 3px; }
+  .callout p { margin: 0; line-height: 1.7; }
+  .callout.info   { background:rgba(167,139,250,.07); border:1px solid rgba(167,139,250,.2); }
+  .callout.tip    { background:rgba(74,222,128,.07);  border:1px solid rgba(74,222,128,.2); }
+  .callout.warn   { background:rgba(251,146,60,.07);  border:1px solid rgba(251,146,60,.2); }
+  .callout.note   { background:rgba(56,189,248,.07);  border:1px solid rgba(56,189,248,.2); }
+  .callout.danger { background:rgba(244,114,182,.07); border:1px solid rgba(244,114,182,.2); }
+
+  /* ── CODE ── */
+  .code-wrap {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin: 20px 0;
+    overflow: hidden;
+  }
+  .code-header {
+    display: flex;
+    align-items: center;
+    background: var(--surface);
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+  }
+  .code-dots { display:flex; gap:5px; }
+  .code-dots i { width:10px; height:10px; border-radius:50%; display:block; }
+  .code-dots i:nth-child(1){background:#ef4444}
+  .code-dots i:nth-child(2){background:#f59e0b}
+  .code-dots i:nth-child(3){background:#22c55e}
+  .code-file {
+    font-family:'Space Mono',monospace;
+    font-size:10.5px;
+    color:var(--text-muted);
+    flex:1;
+    text-align:center;
+  }
+  .code-lang {
+    font-family:'Space Mono',monospace;
+    font-size:9.5px;
+    font-weight:700;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--accent);
+    background:rgba(167,139,250,.1);
+    border:1px solid rgba(167,139,250,.2);
+    border-radius:4px;
+    padding:2px 8px;
+  }
+  pre {
+    padding:22px 24px;
+    overflow-x:auto;
+    line-height:1.72;
+    font-size:.805rem;
+  }
+  code { font-family:'Space Mono',monospace; }
+  p code, li code, td code, h4 code {
+    background:var(--surface2);
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:1px 7px;
+    font-size:.775rem;
+    color:var(--accent);
+    font-family:'Space Mono',monospace;
+  }
+
+  /* syntax */
+  .kw { color:#c4b5fd }
+  .cl { color:#7dd3fc }
+  .fn { color:#f9a8d4 }
+  .st { color:#86efac }
+  .cm { color:#3d3d6e; font-style:italic }
+  .nb { color:#fda4af }
+  .dc { color:#fbbf24 }
+  .op { color:#a78bfa }
+  .pl { color:#e4e4f0 }
+  .nu { color:#fb923c }
+
+  /* ── TABLE ── */
+  .table-wrap {
+    overflow-x:auto;
+    margin:20px 0;
+    border-radius:10px;
+    border:1px solid var(--border);
+  }
+  table { width:100%; border-collapse:collapse; font-size:.87rem; }
+  thead { background:var(--surface); }
+  th {
+    font-family:'Space Grotesk',sans-serif;
+    font-size:.73rem;
+    font-weight:700;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    color:var(--text-muted);
+    padding:12px 18px;
+    text-align:left;
+    border-bottom:1px solid var(--border);
+  }
+  td { padding:11px 18px; border-bottom:1px solid rgba(37,37,64,.6); vertical-align:top; }
+  tr:last-child td { border-bottom:none; }
+  tbody tr:hover { background:var(--surface2); }
+
+  /* ── DIAGRAM ── */
+  .diagram {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:28px 24px;
+    margin:24px 0;
+    overflow-x:auto;
+  }
+  .diag-title {
+    font-family:'Space Mono',monospace;
+    font-size:9.5px;
+    letter-spacing:.2em;
+    text-transform:uppercase;
+    color:var(--text-muted);
+    margin-bottom:22px;
+    text-align:center;
+  }
+
+  /* DB tables diagram */
+  .db-wrap {
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    gap:0;
+    flex-wrap:wrap;
+  }
+  .dbt {
+    background:var(--surface2);
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:hidden;
+    min-width:175px;
+  }
+  .dbt.hi { border-color:var(--accent); }
+  .dbt-head {
+    font-family:'Space Grotesk',sans-serif;
+    font-size:.78rem;
+    font-weight:700;
+    padding:9px 16px;
+    border-bottom:1px solid var(--border);
+    text-align:center;
+  }
+  .dbt.hi .dbt-head   { background:rgba(167,139,250,.1); color:var(--accent); }
+  .dbt:not(.hi) .dbt-head { background:var(--surface3); color:var(--accent3); }
+  .dbt-row {
+    font-family:'Space Mono',monospace;
+    font-size:.69rem;
+    padding:7px 16px;
+    border-bottom:1px solid rgba(37,37,64,.4);
+    display:flex; align-items:center; gap:8px;
+    color:var(--text-muted);
+  }
+  .dbt-row:last-child { border-bottom:none; }
+  .pk { color:var(--accent2); font-size:.62rem; background:rgba(251,146,60,.1); border-radius:3px; padding:1px 4px; }
+  .fk { color:var(--accent);  font-size:.62rem; background:rgba(167,139,250,.1); border-radius:3px; padding:1px 4px; }
+  .uk { color:var(--accent4); font-size:.62rem; background:rgba(74,222,128,.1);  border-radius:3px; padding:1px 4px; }
+
+  .db-conn {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:0 20px;
+    gap:4px;
+    min-height:80px;
+    align-self:center;
+  }
+  .db-lbl {
+    font-family:'Space Mono',monospace;
+    font-size:.68rem;
+    color:var(--text-muted);
+    text-align:center;
+    white-space:nowrap;
+  }
+  .db-arrow { color:var(--accent); font-size:1.8rem; }
+
+  /* compare */
+  .compare-grid {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+    margin:20px 0;
+  }
+  @media (max-width:560px) { .compare-grid { grid-template-columns:1fr; } }
+  .ccard {
+    background:var(--surface);
+    border-radius:10px;
+    padding:18px 20px;
+    font-size:.88rem;
+  }
+  .ccard.yes { border:1px solid rgba(74,222,128,.3); }
+  .ccard.no  { border:1px solid rgba(244,114,182,.3); }
+  .ccard.vs1 { border:1px solid rgba(167,139,250,.3); }
+  .ccard.vs2 { border:1px solid rgba(56,189,248,.3); }
+  .ccard-label {
+    font-family:'Space Grotesk',sans-serif;
+    font-size:.75rem;
+    font-weight:700;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    margin-bottom:10px;
+  }
+  .ccard.yes .ccard-label  { color:var(--accent4); }
+  .ccard.no  .ccard-label  { color:var(--accent5); }
+  .ccard.vs1 .ccard-label  { color:var(--accent); }
+  .ccard.vs2 .ccard-label  { color:var(--accent3); }
+  .ccard p { font-size:.86rem; color:var(--text-muted); margin:0; line-height:1.65; }
+
+  /* real world cards */
+  .rw-grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(190px,1fr));
+    gap:12px;
+    margin:22px 0;
+  }
+  .rw-card {
+    background:var(--surface2);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:16px 18px;
+  }
+  .rw-a { font-family:'Space Grotesk',sans-serif; font-weight:700; color:var(--accent); margin-bottom:5px; font-size:.9rem; }
+  .rw-sep { font-family:'Space Mono',monospace; font-size:.68rem; color:var(--text-muted); margin:5px 0; }
+  .rw-b { font-family:'Space Grotesk',sans-serif; font-weight:700; color:var(--accent4); font-size:.9rem; }
+
+  /* steps */
+  .steps { margin:24px 0; }
+  .step {
+    display:grid;
+    grid-template-columns:44px 1fr;
+    gap:18px;
+    margin-bottom:26px;
+    align-items:start;
+  }
+  .step-n {
+    width:44px; height:44px;
+    border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Space Mono',monospace;
+    font-weight:700;
+    font-size:.9rem;
+    flex-shrink:0;
+  }
+  .step-n.num  { background:rgba(167,139,250,.1); border:1px solid rgba(167,139,250,.3); color:var(--accent); }
+  .step-n.warn { background:rgba(244,114,182,.1); border:1px solid rgba(244,114,182,.3); color:var(--accent5); font-size:1rem; }
+  .step-body h4 { font-family:'Space Grotesk',sans-serif; font-size:.97rem; margin-bottom:5px; color:var(--accent); }
+  .step-body h4.warn { color:var(--accent5); }
+  .step-body p { font-size:.91rem; margin:0; color:var(--text-muted); }
+
+  /* on_delete */
+  .od-list { margin:18px 0; display:flex; flex-direction:column; gap:8px; }
+  .od-row {
+    display:grid;
+    grid-template-columns:190px 1fr;
+    border-radius:8px;
+    overflow:hidden;
+    border:1px solid var(--border);
+    font-size:.87rem;
+  }
+  .od-key {
+    font-family:'Space Mono',monospace;
+    font-size:.78rem;
+    padding:12px 16px;
+    background:var(--surface2);
+    display:flex; align-items:center;
+    font-weight:700;
+    border-right:1px solid var(--border);
+    flex-shrink:0;
+  }
+  .od-val { padding:12px 16px; background:var(--surface); color:var(--text-muted); line-height:1.55; }
+  .c1{color:var(--accent5)} .c2{color:var(--accent2)} .c3{color:var(--accent)} .c4{color:var(--accent4)} .c5{color:var(--accent3)}
+
+  /* quiz */
+  .quiz {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:28px 30px;
+    margin:32px 0;
+  }
+  .quiz-hd {
+    font-family:'Space Grotesk',sans-serif;
+    font-size:1.05rem;
+    font-weight:700;
+    margin-bottom:26px;
+    display:flex; align-items:center; gap:10px;
+    letter-spacing:-.01em;
+  }
+  .quiz-q { margin-bottom:22px; padding-bottom:22px; border-bottom:1px solid var(--border); }
+  .quiz-q:last-of-type { border-bottom:none; }
+  .quiz-q p { font-size:.95rem; margin-bottom:12px; }
+  .quiz-q label {
+    display:flex; align-items:flex-start; gap:10px;
+    font-size:.87rem; color:var(--text-muted);
+    padding:9px 12px; border-radius:7px;
+    cursor:pointer; transition:background .15s;
+    margin-bottom:4px; line-height:1.5;
+  }
+  .quiz-q label:hover { background:var(--surface2); color:var(--text); }
+  .quiz-q input[type=radio] { accent-color:var(--accent); margin-top:2px; flex-shrink:0; }
+  .quiz-btn {
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700; font-size:.87rem;
+    background:var(--accent); color:#09090f;
+    border:none; border-radius:7px;
+    padding:11px 26px; cursor:pointer;
+    margin-top:10px; transition:opacity .2s;
+    letter-spacing:.01em;
+  }
+  .quiz-btn:hover { opacity:.85; }
+  .quiz-result {
+    margin-top:16px;
+    font-family:'Space Mono',monospace;
+    font-size:.85rem;
+    padding:12px 18px; border-radius:8px;
+    display:none; line-height:1.7;
+  }
+  .quiz-result.ok  { background:rgba(74,222,128,.08);  color:var(--accent4); border:1px solid rgba(74,222,128,.2); }
+  .quiz-result.mid { background:rgba(251,146,60,.08);  color:var(--accent2); border:1px solid rgba(251,146,60,.2); }
+  .quiz-result.err { background:rgba(244,114,182,.08); color:var(--accent5); border:1px solid rgba(244,114,182,.2); }
+
+  /* summary */
+  .sum-grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(200px,1fr));
+    gap:14px;
+    margin:24px 0;
+  }
+  .sum-card {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:20px;
+    transition:border-color .2s, transform .2s;
+  }
+  .sum-card:hover { border-color:var(--accent); transform:translateY(-3px); }
+  .sum-ico  { font-size:1.7rem; margin-bottom:12px; }
+  .sum-card h4 { font-family:'Space Grotesk',sans-serif; font-size:.86rem; font-weight:700; color:var(--accent); margin-bottom:8px; }
+  .sum-card p  { font-size:.8rem; color:var(--text-muted); margin:0; line-height:1.6; }
+
+  /* key insight box */
+  .insight {
+    background: linear-gradient(135deg, rgba(167,139,250,.08) 0%, rgba(244,114,182,.06) 100%);
+    border: 1px solid rgba(167,139,250,.25);
+    border-radius: 12px;
+    padding: 22px 26px;
+    margin: 24px 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .insight::before {
+    content: '"';
+    position: absolute;
+    top: -10px; left: 14px;
+    font-size: 5rem;
+    color: var(--accent);
+    opacity: .1;
+    font-family: Georgia, serif;
+    line-height: 1;
+  }
+  .insight p { font-size: .96rem; font-style: italic; margin: 0; color: var(--text); line-height: 1.75; }
+  .insight-src {
+    font-family: 'Space Mono', monospace;
+    font-size: .72rem;
+    color: var(--accent);
+    margin-top: 10px;
+    display: block;
+  }
+
+  hr { border:none; border-top:1px solid var(--border); margin:52px 0; }
+
+  ::-webkit-scrollbar { width:6px; height:6px; }
+  ::-webkit-scrollbar-track { background:var(--bg); }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+  ::-webkit-scrollbar-thumb:hover { background:var(--accent); }
+
+  footer {
+    text-align:center;
+    padding:40px 20px;
+    border-top:1px solid var(--border);
+    font-family:'Space Mono',monospace;
+    font-size:.72rem;
+    color:var(--text-muted);
+  }
+  footer strong { color:var(--accent); }
+</style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-rings">
+    <div class="ring"></div><div class="ring"></div>
+    <div class="ring"></div><div class="ring"></div>
+  </div>
+  <div class="hero-inner">
+    <div class="hero-badge">
+      <span class="hero-badge-dot"></span>
+      Django ORM · Relaciones
+    </div>
+    <h1>
+      <span class="top">Relaciones</span>
+      <span class="mid">One-to-One</span>
+      <span class="bot">en Django</span>
+    </h1>
+    <p class="hero-sub">Aprende a modelar relaciones de uno a uno con <code>OneToOneField</code>: el campo más preciso del ORM de Django.</p>
+    <div class="hero-tags">
+      <span class="htag"><b>📚</b> Nivel: Iniciación</span>
+      <span class="htag"><b>🕐</b> Lectura ~25 min</span>
+      <span class="htag"><b>🐍</b> Python + Django</span>
+      <span class="htag"><b>✅</b> Con ejercicios</span>
+    </div>
+  </div>
+</header>
+
+<div class="page-grid">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <p class="sb-head">Contenido</p>
+    <nav>
+      <a href="#intro">¿Qué es One-to-One?</a>
+      <a href="#vs-fk">O2O vs ForeignKey</a>
+      <a href="#analogia">Ejemplos del mundo real</a>
+      <a href="#modelo">OneToOneField en Django</a>
+      <a href="#params" class="sub">Parámetros clave</a>
+      <a href="#on-delete">on_delete</a>
+      <a href="#migraciones">Migraciones y tablas</a>
+      <a href="#operaciones">Operaciones básicas</a>
+      <a href="#acceso-inverso" class="sub">Acceso inverso</a>
+      <a href="#excepcion" class="sub">RelatedObjectDoesNotExist</a>
+      <a href="#consultas">Consultas avanzadas</a>
+      <a href="#select-related">select_related</a>
+      <a href="#caso-perfil">Caso práctico: Perfil</a>
+      <a href="#señales" class="sub">Señales (signals)</a>
+      <a href="#formularios">Formularios</a>
+      <a href="#admin">Django Admin</a>
+      <a href="#errores">Errores comunes</a>
+      <a href="#buenas-practicas">Buenas prácticas</a>
+      <a href="#quiz">Mini Quiz</a>
+      <a href="#resumen">Resumen</a>
+    </nav>
+  </aside>
+
+  <!-- CONTENT -->
+  <main class="content">
+
+    <!-- S1 -->
+    <section class="section" id="intro">
+      <div class="sec-label">Sección 01</div>
+      <h2><span class="n">01.</span>¿Qué es una relación One-to-One?</h2>
+
+      <p>Una relación <strong>One-to-One</strong> (uno a uno) es el tipo más estricto de relación entre tablas. Significa que <em>un registro de una tabla está asociado con exactamente un registro de otra tabla</em>, y viceversa. Ni más, ni menos: uno y solo uno.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Relación</th><th>Descripción</th><th>Ejemplo</th><th>Campo en Django</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong style="color:var(--accent)">One-to-One</strong></td>
+              <td>Un registro ↔ exactamente uno</td>
+              <td>Usuario ↔ Perfil</td>
+              <td><strong><code>OneToOneField</code></strong></td>
+            </tr>
+            <tr>
+              <td>One-to-Many</td>
+              <td>Un registro → muchos del otro</td>
+              <td>Autor → Libros</td>
+              <td><code>ForeignKey</code></td>
+            </tr>
+            <tr>
+              <td>Many-to-Many</td>
+              <td>Muchos ↔ muchos</td>
+              <td>Estudiantes ↔ Cursos</td>
+              <td><code>ManyToManyField</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="insight">
+        <p>Piensa en <code>OneToOneField</code> como un <code>ForeignKey</code> con una restricción extra: la combinación de valores en la columna FK debe ser <strong>única</strong>. Cada padre tiene a lo sumo un hijo, y cada hijo tiene exactamente un padre.</p>
+        <span class="insight-src">→ Internamente Django añade unique=True a la columna FK en la base de datos</span>
+      </div>
+
+      <div class="callout info">
+        <div class="callout-ico">💡</div>
+        <p>El uso más clásico de <code>OneToOneField</code> en Django es <strong>extender el modelo de usuario</strong> incorporado (<code>auth.User</code>) con campos adicionales mediante un modelo <code>Perfil</code>. Es el patrón recomendado por la documentación oficial de Django.</p>
+      </div>
+    </section>
+
+    <!-- S2 -->
+    <section class="section" id="vs-fk">
+      <div class="sec-label">Sección 02</div>
+      <h2><span class="n">02.</span>One-to-One vs ForeignKey: ¿en qué se diferencian?</h2>
+
+      <p>Como acabamos de ver, <code>OneToOneField</code> se parece mucho a <code>ForeignKey</code>. La diferencia clave está en la <strong>unicidad</strong>:</p>
+
+      <div class="compare-grid">
+        <div class="ccard vs1">
+          <div class="ccard-label">⬡ OneToOneField</div>
+          <p>La columna FK tiene una restricción <code>UNIQUE</code> en la base de datos. Cada registro padre puede tener <strong>como máximo un</strong> registro hijo. Django lanza un error si intentas crear un segundo hijo para el mismo padre.</p>
+        </div>
+        <div class="ccard vs2">
+          <div class="ccard-label">⬡ ForeignKey</div>
+          <p>La columna FK no es única. Cada registro padre puede tener <strong>muchos</strong> hijos. Es la relación One-to-Many habitual.</p>
+        </div>
+      </div>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">Diferencia conceptual</span>
+          <span class="code-lang">Python</span>
+        </div>
+        <pre><code><span class="cm"># ── ForeignKey: un autor puede tener MUCHOS libros ──</span>
+<span class="kw">class</span> <span class="cl">Libro</span><span class="pl">(</span><span class="cl">models.Model</span><span class="pl">):</span>
+    <span class="pl">autor</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">ForeignKey</span><span class="pl">(Autor, on_delete</span><span class="op">=</span><span class="pl">models</span><span class="op">.</span><span class="cl">CASCADE</span><span class="pl">)</span>
+    <span class="cm"># autor_id no es único → un autor puede aparecer muchas veces</span>
+
+
+<span class="cm"># ── OneToOneField: un usuario tiene UN SOLO perfil ──</span>
+<span class="kw">class</span> <span class="cl">Perfil</span><span class="pl">(</span><span class="cl">models.Model</span><span class="pl">):</span>
+    <span class="pl">usuario</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">OneToOneField</span><span class="pl">(Usuario, on_delete</span><span class="op">=</span><span class="pl">models</span><span class="op">.</span><span class="cl">CASCADE</span><span class="pl">)</span>
+    <span class="cm"># usuario_id es ÚNICO → cada usuario solo puede tener 1 perfil</span>
+    <span class="cm"># Si intentas crear un segundo: IntegrityError (UNIQUE constraint failed)</span></code></pre>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-ico">✅</div>
+        <p>Una forma fácil de elegir: si la pregunta es <em>"¿puede este padre tener más de uno?"</em> y la respuesta es <strong>NO</strong>, usa <code>OneToOneField</code>. Si la respuesta es SÍ, usa <code>ForeignKey</code>.</p>
+      </div>
+    </section>
+
+    <!-- S3 -->
+    <section class="section" id="analogia">
+      <div class="sec-label">Sección 03</div>
+      <h2><span class="n">03.</span>Ejemplos del mundo real</h2>
+
+      <p>Las relaciones One-to-One aparecen cuando un objeto tiene una <strong>extensión exclusiva</strong>: algo que pertenece única y exclusivamente a él, y a nadie más.</p>
+
+      <div class="rw-grid">
+        <div class="rw-card">
+          <div class="rw-a">👤 Usuario</div>
+          <div class="rw-sep">↕ tiene exactamente un</div>
+          <div class="rw-b">🪪 Perfil</div>
+        </div>
+        <div class="rw-card">
+          <div class="rw-a">👤 Persona</div>
+          <div class="rw-sep">↕ tiene exactamente un</div>
+          <div class="rw-b">🪪 DNI / Pasaporte</div>
+        </div>
+        <div class="rw-card">
+          <div class="rw-a">🏢 Empresa</div>
+          <div class="rw-sep">↕ tiene exactamente una</div>
+          <div class="rw-b">📋 Configuración</div>
+        </div>
+        <div class="rw-card">
+          <div class="rw-a">🛒 Pedido</div>
+          <div class="rw-sep">↕ tiene exactamente una</div>
+          <div class="rw-b">🚚 Info de envío</div>
+        </div>
+        <div class="rw-card">
+          <div class="rw-a">🎓 Alumno</div>
+          <div class="rw-sep">↕ tiene exactamente un</div>
+          <div class="rw-b">📄 Expediente</div>
+        </div>
+        <div class="rw-card">
+          <div class="rw-a">🏠 Inmueble</div>
+          <div class="rw-sep">↕ tiene exactamente un</div>
+          <div class="rw-b">📍 Dirección registrada</div>
+        </div>
+      </div>
+
+      <div class="callout note">
+        <div class="callout-ico">📌</div>
+        <p>El patrón más frecuente en Django es extender el modelo <code>User</code> de Django con un <code>Perfil</code>. En vez de modificar el usuario base (que es arriesgado), creas un modelo paralelo vinculado con <code>OneToOneField</code>. ¡Lo veremos en detalle más adelante!</p>
+      </div>
+    </section>
+
+    <!-- S4 -->
+    <section class="section" id="modelo">
+      <div class="sec-label">Sección 04</div>
+      <h2><span class="n">04.</span><code>OneToOneField</code> en Django</h2>
+
+      <p>Vamos a construir nuestro primer ejemplo: un sistema de <strong>usuarios con perfil</strong>. Usaremos el <code>User</code> de Django como modelo base y le añadiremos un perfil con datos extra.</p>
+
+      <h3 id="params">Definir el modelo</h3>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">usuarios/models.py</span>
+          <span class="code-lang">Python · Django</span>
+        </div>
+        <pre><code><span class="kw">from</span> <span class="pl">django.db</span> <span class="kw">import</span> <span class="pl">models</span>
+<span class="kw">from</span> <span class="pl">django.contrib.auth.models</span> <span class="kw">import</span> <span class="cl">User</span>
+
+
+<span class="kw">class</span> <span class="cl">Perfil</span><span class="pl">(</span><span class="cl">models.Model</span><span class="pl">):</span>
+    <span class="cm"># 👇 OneToOneField: la clave de la relación uno a uno</span>
+    <span class="pl">usuario</span> <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">OneToOneField</span><span class="pl">(</span>
+        <span class="cl">User</span><span class="pl">,</span>
+        <span class="pl">on_delete</span><span class="op">=</span><span class="pl">models</span><span class="op">.</span><span class="cl">CASCADE</span><span class="pl">,</span>     <span class="cm"># si se borra el User, se borra el Perfil</span>
+        <span class="pl">related_name</span><span class="op">=</span><span class="st">'perfil'</span><span class="pl">,</span>        <span class="cm"># acceso: user.perfil</span>
+        <span class="pl">verbose_name</span><span class="op">=</span><span class="st">'Usuario'</span>
+    <span class="pl">)</span>
+
+    <span class="cm"># Campos extra que no tiene el User por defecto</span>
+    <span class="pl">avatar</span>      <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">ImageField</span><span class="pl">(upload_to</span><span class="op">=</span><span class="st">'avatares/'</span><span class="pl">, null</span><span class="op">=</span><span class="kw">True</span><span class="pl">, blank</span><span class="op">=</span><span class="kw">True</span><span class="pl">)</span>
+    <span class="pl">bio</span>         <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">TextField</span><span class="pl">(blank</span><span class="op">=</span><span class="kw">True</span><span class="pl">)</span>
+    <span class="pl">telefono</span>    <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">CharField</span><span class="pl">(max_length</span><span class="op">=</span><span class="nu">20</span><span class="pl">, blank</span><span class="op">=</span><span class="kw">True</span><span class="pl">)</span>
+    <span class="pl">ciudad</span>      <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">CharField</span><span class="pl">(max_length</span><span class="op">=</span><span class="nu">100</span><span class="pl">, blank</span><span class="op">=</span><span class="kw">True</span><span class="pl">)</span>
+    <span class="pl">sitio_web</span>   <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">URLField</span><span class="pl">(blank</span><span class="op">=</span><span class="kw">True</span><span class="pl">)</span>
+    <span class="pl">fecha_nac</span>   <span class="op">=</span> <span class="pl">models</span><span class="op">.</span><span class="fn">DateField</span><span class="pl">(null</span><span class="op">=</span><span class="kw">True</span><span class="pl">, blank</span><span class="op">=</span><span class="kw">True</span><span class="pl">)</span>
+
+    <span class="kw">class</span> <span class="cl">Meta</span><span class="pl">:</span>
+        <span class="pl">verbose_name</span>        <span class="op">=</span> <span class="st">'Perfil'</span>
+        <span class="pl">verbose_name_plural</span> <span class="op">=</span> <span class="st">'Perfiles'</span>
+
+    <span class="kw">def</span> <span class="fn">__str__</span><span class="pl">(self):</span>
+        <span class="kw">return</span> <span class="nb">f</span><span class="st">"Perfil de {self.usuario.username}"</span></code></pre>
+      </div>
+
+      <h3>Parámetros de <code>OneToOneField</code></h3>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Parámetro</th><th>Obligatorio</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>to</code> (1er arg)</td><td>✅ Sí</td><td>Modelo al que apunta la relación</td></tr>
+            <tr><td><code>on_delete</code></td><td>✅ Sí</td><td>Qué hacer si se borra el padre</td></tr>
+            <tr><td><code>related_name</code></td><td>❌ No</td><td>Nombre del acceso inverso (muy recomendado)</td></tr>
+            <tr><td><code>null=True</code></td><td>❌ No</td><td>La FK puede ser NULL (relación opcional)</td></tr>
+            <tr><td><code>blank=True</code></td><td>❌ No</td><td>Permite campo vacío en formularios</td></tr>
+            <tr><td><code>parent_link</code></td><td>❌ No</td><td>Indica herencia de modelo (avanzado)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout info">
+        <div class="callout-ico">💡</div>
+        <p><code>OneToOneField</code> acepta <strong>exactamente los mismos parámetros</strong> que <code>ForeignKey</code> (excepto que no tiene <code>limit_choices_to</code> de la misma forma y añade <code>parent_link</code>). Todo lo que sabes de FK se aplica aquí.</p>
+      </div>
+    </section>
+
+    <!-- S5 on_delete -->
+    <section class="section" id="on-delete">
+      <div class="sec-label">Sección 05</div>
+      <h2><span class="n">05.</span><code>on_delete</code>: comportamiento al borrar el padre</h2>
+
+      <p>Al igual que con <code>ForeignKey</code>, debes decidir qué ocurre con el objeto hijo cuando se elimina el padre. Las opciones son las mismas:</p>
+
+      <div class="od-list">
+        <div class="od-row">
+          <div class="od-key c1"><code>CASCADE</code></div>
+          <div class="od-val">Borra también el perfil cuando se borra el usuario. <strong>El más común</strong> en O2O: si el usuario desaparece, su perfil no tiene sentido.</div>
+        </div>
+        <div class="od-row">
+          <div class="od-key c2"><code>PROTECT</code></div>
+          <div class="od-val">Impide borrar el usuario si existe su perfil. Lanza <code>ProtectedError</code>. Útil si el perfil contiene datos que no quieres perder accidentalmente.</div>
+        </div>
+        <div class="od-row">
+          <div class="od-key c3"><code>SET_NULL</code></div>
+          <div class="od-val">Pone la FK del perfil a <code>NULL</code>. El perfil queda "huérfano". Requiere <code>null=True</code> en el campo. Caso inusual en O2O.</div>
+        </div>
+        <div class="od-row">
+          <div class="od-key c4"><code>SET_DEFAULT</code></div>
+          <div class="od-val">Asigna el valor por defecto al campo. Requiere <code>default=...</code>.</div>
+        </div>
+        <div class="od-row">
+          <div class="od-key c5"><code>DO_NOTHING</code></div>
+          <div class="od-val">No hace nada en Django. Puede causar errores de integridad en la BD. Evítalo salvo que gestiones la integridad manualmente.</div>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-ico">⚠️</div>
+        <p>En casi todos los casos de <code>OneToOneField</code> la opción correcta es <code>CASCADE</code>: si el padre no existe, el hijo tampoco tiene sentido. Es raro necesitar otra opción en O2O.</p>
+      </div>
+    </section>
+
+    <!-- S6 Migraciones -->
+    <section class="section" id="migraciones">
+      <div class="sec-label">Sección 06</div>
+      <h2><span class="n">06.</span>Migraciones y estructura de tablas</h2>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">Terminal</span>
+          <span class="code-lang">Shell</span>
+        </div>
+        <pre><code><span class="cm"># 1. Generamos la migración</span>
+<span class="nb">python</span> manage.py makemigrations usuarios
+
+<span class="cm"># 2. La aplicamos</span>
+<span class="nb">python</span> manage.py migrate
+
+<span class="cm"># 3. (Opcional) Ver el SQL generado</span>
+<span class="nb">python</span> manage.py sqlmigrate usuarios 0001</code></pre>
+      </div>
+
+      <p>Como en One-to-Many, Django crea <strong>2 tablas</strong>. La diferencia es la restricción <code>UNIQUE</code> en la columna FK:</p>
+
+      <div class="diagram">
+        <div class="diag-title">Estructura de tablas en la base de datos</div>
+        <div class="db-wrap">
+          <div class="dbt">
+            <div class="dbt-head">auth_user</div>
+            <div class="dbt-row"><span class="pk">PK</span> id</div>
+            <div class="dbt-row">username</div>
+            <div class="dbt-row">email</div>
+            <div class="dbt-row">first_name</div>
+            <div class="dbt-row">last_name</div>
+            <div class="dbt-row">password</div>
+          </div>
+          <div class="db-conn">
+            <div class="db-lbl">1</div>
+            <div class="db-arrow">⟷</div>
+            <div class="db-lbl">1</div>
+          </div>
+          <div class="dbt hi">
+            <div class="dbt-head">usuarios_perfil</div>
+            <div class="dbt-row"><span class="pk">PK</span> id</div>
+            <div class="dbt-row"><span class="fk">FK</span> <span class="uk">UK</span> usuario_id</div>
+            <div class="dbt-row">avatar</div>
+            <div class="dbt-row">bio</div>
+            <div class="dbt-row">telefono</div>
+            <div class="dbt-row">ciudad</div>
+            <div class="dbt-row">sitio_web</div>
+            <div class="dbt-row">fecha_nac</div>
+          </div>
+        </div>
+        <div style="margin-top:16px;text-align:center;font-family:'Space Mono',monospace;font-size:.68rem;color:var(--text-muted);">
+          <span style="color:var(--accent4)">UK</span> = UNIQUE CONSTRAINT · Garantiza que no puede haber dos perfiles para el mismo usuario
+        </div>
+      </div>
+
+      <div class="callout info">
+        <div class="callout-ico">💡</div>
+        <p>La diferencia en la BD entre <code>OneToOneField</code> y <code>ForeignKey</code> es una sola palabra en SQL: <code>UNIQUE</code>. Django la añade automáticamente a la columna <code>usuario_id</code> cuando usas <code>OneToOneField</code>.</p>
+      </div>
+    </section>
+
+    <!-- S7 Operaciones -->
+    <section class="section" id="operaciones">
+      <div class="sec-label">Sección 07</div>
+      <h2><span class="n">07.</span>Operaciones básicas con el ORM</h2>
+
+      <h3>Crear objetos con <code>OneToOneField</code></h3>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">Django Shell / views.py</span>
+          <span class="code-lang">Python</span>
+        </div>
+        <pre><code><span class="kw">from</span> <span class="pl">django.contrib.auth.models</span> <span class="kw">import</span> <span class="cl">User</span>
+<span class="kw">from</span> <span class="pl">.models</span> <span class="kw">import</span> <span class="cl">Perfil</span>
+
+<span class="cm"># ── Crear un usuario ──</span>
+<span class="pl">user</span> <span class="op">=</span> <span class="cl">User</span><span class="op">.</span><span class="fn">objects.create_user</span><span class="pl">(</span>
+    <span class="pl">username</span><span class="op">=</span><span class="st">'ana'</span><span class="pl">,</span>
+    <span class="pl">email</span><span class="op">=</span><span class="st">'ana@ejemplo.com'</span><span class="pl">,</span>
+    <span class="pl">password</span><span class="op">=</span><span class="st">'clave1234'</span>
+<span class="pl">)</span>
+
+<span class="cm"># ── Crear su perfil (vinculado con O2O) ──</span>
+<span class="pl">perfil</span> <span class="op">=</span> <span class="cl">Perfil</span><span class="op">.</span><span class="fn">objects.create</span><span class="pl">(</span>
+    <span class="pl">usuario</span>   <span class="op">=</span> <span class="pl">user</span><span class="pl">,</span>
+    <span class="pl">bio</span>       <span class="op">=</span> <span class="st">"Desarrolladora web apasionada"</span><span class="pl">,</span>
+    <span class="pl">ciudad</span>    <span class="op">=</span> <span class="st">"Madrid"</span><span class="pl">,</span>
+    <span class="pl">telefono</span>  <span class="op">=</span> <span class="st">"600 000 000"</span>
+<span class="pl">)</span>
+
+<span class="cm"># ── Intentar crear un segundo perfil para el mismo usuario ──</span>
+<span class="cm"># 💥 Lanza IntegrityError: UNIQUE constraint failed</span>
+<span class="cl">Perfil</span><span class="op">.</span><span class="fn">objects.create</span><span class="pl">(usuario</span><span class="op">=</span><span class="pl">user, ciudad</span><span class="op">=</span><span class="st">"Barcelona"</span><span class="pl">)</span>
+
+<span class="cm"># ── Acceder al perfil DESDE el usuario (acceso inverso) ──</span>
+<span class="fn">print</span><span class="pl">(user</span><span class="op">.</span><span class="pl">perfil</span><span class="op">.</span><span class="pl">ciudad</span><span class="pl">)</span>      <span class="cm"># → "Madrid"</span>
+<span class="fn">print</span><span class="pl">(user</span><span class="op">.</span><span class="pl">perfil</span><span class="op">.</span><span class="pl">bio</span><span class="pl">)</span>         <span class="cm"># → "Desarrolladora web apasionada"</span>
+<span class="fn">print</span><span class="pl">(user</span><span class="op">.</span><span class="pl">perfil</span><span class="op">.</span><span class="pl">usuario_id</span><span class="pl">)</span>  <span class="cm"># → 1 (el id del user, sin query)</span>
+
+<span class="cm"># ── Acceder al usuario DESDE el perfil ──</span>
+<span class="fn">print</span><span class="pl">(perfil</span><span class="op">.</span><span class="pl">usuario</span><span class="op">.</span><span class="pl">username</span><span class="pl">)</span> <span class="cm"># → "ana"</span>
+<span class="fn">print</span><span class="pl">(perfil</span><span class="op">.</span><span class="pl">usuario</span><span class="op">.</span><span class="pl">email</span><span class="pl">)</span>    <span class="cm"># → "ana@ejemplo.com"</span>
+
+<span class="cm"># ── Modificar el perfil ──</span>
+<span class="pl">perfil</span><span class="op">.</span><span class="pl">ciudad</span>    <span class="op">=</span> <span class="st">"Sevilla"</span>
+<span class="pl">perfil</span><span class="op">.</span><span class="pl">sitio_web</span> <span class="op">=</span> <span class="st">"https://ana.dev"</span>
+<span class="pl">perfil</span><span class="op">.</span><span class="fn">save</span><span class="pl">()</span>
+
+<span class="cm"># ── Borrar el perfil (no borra el user con CASCADE definido así) ──</span>
+<span class="pl">perfil</span><span class="op">.</span><span class="fn">delete</span><span class="pl">()</span>   <span class="cm"># solo borra el perfil</span>
+
+<span class="cm"># ── Borrar el user (con CASCADE sí borra el perfil también) ──</span>
+<span class="pl">user</span><span class="op">.</span><span class="fn">delete</span><span class="pl">()</span>    <span class="cm"># borra user Y perfil</span></code></pre>
+      </div>
+
+      <h3 id="acceso-inverso">El acceso inverso: de padre a hijo</h3>
+      <p>A diferencia de <code>ForeignKey</code> (donde el acceso inverso devuelve un <em>Manager</em> con muchos objetos), en <code>OneToOneField</code> el acceso inverso devuelve <strong>directamente el objeto</strong>, no un QuerySet.</p>
+
+      <div class="compare-grid">
+        <div class="ccard vs1">
+          <div class="ccard-label">OneToOneField (O2O)</div>
+          <p>El acceso inverso devuelve <strong>el objeto directamente</strong>:<br><code>user.perfil</code> → objeto Perfil<br>No necesitas <code>.all()</code> ni <code>.first()</code></p>
+        </div>
+        <div class="ccard vs2">
+          <div class="ccard-label">ForeignKey (FK)</div>
+          <p>El acceso inverso devuelve <strong>un Manager</strong>:<br><code>autor.posts</code> → Manager<br>Necesitas <code>.all()</code>, <code>.filter()</code>…</p>
+        </div>
+      </div>
+
+      <h3 id="excepcion">La excepción <code>RelatedObjectDoesNotExist</code></h3>
+      <p>Si intentas acceder al perfil de un usuario que <strong>no tiene perfil</strong>, Django lanza una excepción especial. Debes gestionarla:</p>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">Gestión de la excepción</span>
+          <span class="code-lang">Python</span>
+        </div>
+        <pre><code><span class="cm"># ❌ Si el usuario no tiene perfil, esto lanza excepción</span>
+<span class="pl">user</span><span class="op">.</span><span class="pl">perfil</span>   <span class="cm"># → RelatedObjectDoesNotExist !</span>
+
+<span class="cm"># ✅ Opción 1: try/except</span>
+<span class="kw">try</span><span class="pl">:</span>
+    <span class="pl">perfil</span> <span class="op">=</span> <span class="pl">user</span><span class="op">.</span><span class="pl">perfil</span>
+<span class="kw">except</span> <span class="cl">Perfil</span><span class="op">.</span><span class="cl">DoesNotExist</span><span class="pl">:</span>
+    <span class="pl">perfil</span> <span class="op">=</span> <span class="kw">None</span>
+
+<span class="cm"># ✅ Opción 2: hasattr (comprobación previa)</span>
+<span class="kw">if</span> <span class="fn">hasattr</span><span class="pl">(user,</span> <span class="st">'perfil'</span><span class="pl">):</span>
+    <span class="fn">print</span><span class="pl">(user</span><span class="op">.</span><span class="pl">perfil</span><span class="op">.</span><span class="pl">ciudad</span><span class="pl">)</span>
+<span class="kw">else</span><span class="pl">:</span>
+    <span class="fn">print</span><span class="pl">(</span><span class="st">"Este usuario no tiene perfil"</span><span class="pl">)</span>
+
+<span class="cm"># ✅ Opción 3: get_or_create (crea el perfil si no existe)</span>
+<span class="pl">perfil, creado</span> <span class="op">=</span> <span class="cl">Perfil</span><span class="op">.</span><span class="fn">objects.get_or_create</span><span class="pl">(usuario</span><span class="op">=</span><span class="pl">user)</span>
+<span class="kw">if</span> <span class="pl">creado:</span>
+    <span class="fn">print</span><span class="pl">(</span><span class="st">"Se ha creado un perfil vacío"</span><span class="pl">)</span>
+
+<span class="cm"># ✅ Opción 4: Perfil.objects.filter (no lanza excepción)</span>
+<span class="pl">perfil</span> <span class="op">=</span> <span class="cl">Perfil</span><span class="op">.</span><span class="fn">objects</span><span class="op">.</span><span class="fn">filter</span><span class="pl">(usuario</span><span class="op">=</span><span class="pl">user)</span><span class="op">.</span><span class="fn">first</span><span class="pl">()</span>  <span class="cm"># None si no existe</span></code></pre>
+      </div>
+
+      <div class="callout danger">
+        <div class="callout-ico">🚨</div>
+        <p><strong>¡Cuidado!</strong> Este es el error más frecuente con <code>OneToOneField</code>. Si la relación puede no existir (el usuario puede no tener perfil), protege siempre el acceso con <code>try/except</code>, <code>hasattr()</code> o <code>get_or_create()</code>.</p>
+      </div>
+    </section>
+
+    <!-- S8 Consultas -->
+    <section class="section" id="consultas">
+      <div class="sec-label">Sección 08</div>
+      <h2><span class="n">08.</span>Consultas avanzadas con <code>OneToOneField</code></h2>
+
+      <p>El sistema de consultas de Django funciona exactamente igual que con <code>ForeignKey</code>. Usamos el doble guión bajo <code>__</code> para cruzar la relación en cualquier dirección.</p>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">Consultas ORM avanzadas</span>
+          <span class="code-lang">Python</span>
+        </div>
+        <pre><code><span class="kw">from</span> <span class="pl">django.contrib.auth.models</span> <span class="kw">import</span> <span class="cl">User</span>
+<span class="kw">from</span> <span class="pl">django.db.models</span> <span class="kw">import</span> <span class="cl">Q</span>
+
+<span class="cm"># ── 1. Usuarios que tienen ciudad = Madrid en su perfil ──</span>
+<span class="cl">User</span><span class="op">.</span><span class="fn">objects.filter</span><span class="pl">(perfil__ciudad</span><span class="op">=</span><span class="st">"Madrid"</span><span class="pl">)</span>
+
+<span class="cm"># ── 2. Usuarios con bio rellena ──</span>
+<span class="cl">User</span><span class="op">.</span><span class="fn">objects.filter</span><span class="pl">(perfil__bio__gt</span><span class="op">=</span><span class="st">""</span><span class="pl">)</span>
+
+<span class="cm"># ── 3. Usuarios SIN perfil (perfil es NULL / no existe) ──</span>
+<span class="cl">User</span><span class="op">.</span><span class="fn">objects.filter</span><span class="pl">(perfil__isnull</span><span class="op">=</span><span class="kw">True</span><span class="pl">)</span>
+
+<span class="cm"># ── 4. Usuarios CON perfil ──</span>
+<span class="cl">User</span><span class="op">.</span><span class="fn">objects.filter</span><span class="pl">(perfil__isnull</span><span class="op">=</span><span class="kw">False</span><span class="pl">)</span>
+
+<span class="cm"># ── 5. Perfiles de usuarios activos, ordenados por username ──</span>
+<span class="cl">Perfil</span><span class="op">.</span><span class="fn">objects.filter</span><span class="pl">(usuario__is_active</span><span class="op">=</span><span class="kw">True</span><span class="pl">)</span>\
+       <span class="op">.</span><span class="fn">order_by</span><span class="pl">(</span><span class="st">'usuario__username'</span><span class="pl">)</span>
+
+<span class="cm"># ── 6. Perfiles de Madrid O con sitio web ──</span>
+<span class="cl">Perfil</span><span class="op">.</span><span class="fn">objects.filter</span><span class="pl">(</span>
+    <span class="fn">Q</span><span class="pl">(ciudad</span><span class="op">=</span><span class="st">"Madrid"</span><span class="pl">)</span> <span class="op">|</span> <span class="fn">Q</span><span class="pl">(sitio_web__gt</span><span class="op">=</span><span class="st">""</span><span class="pl">)</span>
+<span class="pl">)</span>
+
+<span class="cm"># ── 7. Buscar perfil por email del usuario ──</span>
+<span class="cl">Perfil</span><span class="op">.</span><span class="fn">objects.get</span><span class="pl">(usuario__email</span><span class="op">=</span><span class="st">"ana@ejemplo.com"</span><span class="pl">)</span>
+
+<span class="cm"># ── 8. Todos los perfiles de usuarios con nombre "Ana" ──</span>
+<span class="cl">Perfil</span><span class="op">.</span><span class="fn">objects.filter</span><span class="pl">(usuario__first_name__icontains</span><span class="op">=</span><span class="st">"Ana"</span><span class="pl">)</span>
+
+<span class="cm"># ── 9. ¿Existe el perfil de un usuario? ──</span>
+<span class="cl">Perfil</span><span class="op">.</span><span class="fn">objects.filter</span><span class="pl">(usuario</span><span class="op">=</span><span class="pl">user)</span><span class="op">.</span><span class="fn">exists</span><span class="pl">()</span>  <span class="cm"># → True / False</span></code></pre>
+      </div>
+    </section>
+
+    <!-- S9 select_related -->
+    <section class="section" id="select-related">
+      <div class="sec-label">Sección 09</div>
+      <h2><span class="n">09.</span>Optimización: <code>select_related</code></h2>
+
+      <p><code>OneToOneField</code>, como <code>ForeignKey</code>, genera una query adicional cada vez que accedes al objeto relacionado. <code>select_related</code> resuelve esto con un JOIN:</p>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">select_related con O2O</span>
+          <span class="code-lang">Python</span>
+        </div>
+        <pre><code><span class="cm"># ❌ MAL: N+1 queries</span>
+<span class="pl">perfiles</span> <span class="op">=</span> <span class="cl">Perfil</span><span class="op">.</span><span class="fn">objects.all</span><span class="pl">()</span>
+<span class="kw">for</span> <span class="pl">p</span> <span class="kw">in</span> <span class="pl">perfiles:</span>
+    <span class="fn">print</span><span class="pl">(p</span><span class="op">.</span><span class="pl">ciudad</span><span class="pl">, p</span><span class="op">.</span><span class="pl">usuario</span><span class="op">.</span><span class="pl">username</span><span class="pl">)</span>  <span class="cm"># 💥 query por cada p.usuario</span>
+
+<span class="cm"># ✅ BIEN: 1 sola query con JOIN</span>
+<span class="pl">perfiles</span> <span class="op">=</span> <span class="cl">Perfil</span><span class="op">.</span><span class="fn">objects.select_related</span><span class="pl">(</span><span class="st">'usuario'</span><span class="pl">)</span>
+<span class="kw">for</span> <span class="pl">p</span> <span class="kw">in</span> <span class="pl">perfiles:</span>
+    <span class="fn">print</span><span class="pl">(p</span><span class="op">.</span><span class="pl">ciudad</span><span class="pl">, p</span><span class="op">.</span><span class="pl">usuario</span><span class="op">.</span><span class="pl">username</span><span class="pl">)</span>  <span class="cm"># ✅ ya en memoria</span>
+
+<span class="cm"># También en sentido inverso: usuarios con su perfil ya cargado</span>
+<span class="pl">usuarios</span> <span class="op">=</span> <span class="cl">User</span><span class="op">.</span><span class="fn">objects.select_related</span><span class="pl">(</span><span class="st">'perfil'</span><span class="pl">)</span>
+<span class="kw">for</span> <span class="pl">u</span> <span class="kw">in</span> <span class="pl">usuarios:</span>
+    <span class="cm"># Cuidado: si no tiene perfil, acceder a u.perfil lanza excepción</span>
+    <span class="kw">try</span><span class="pl">:</span>
+        <span class="fn">print</span><span class="pl">(u</span><span class="op">.</span><span class="pl">username</span><span class="pl">, u</span><span class="op">.</span><span class="pl">perfil</span><span class="op">.</span><span class="pl">ciudad</span><span class="pl">)</span>
+    <span class="kw">except</span> <span class="cl">Perfil</span><span class="op">.</span><span class="cl">DoesNotExist</span><span class="pl">:</span>
+        <span class="fn">print</span><span class="pl">(u</span><span class="op">.</span><span class="pl">username</span><span class="pl">,</span> <span class="st">"sin perfil"</span><span class="pl">)</span></code></pre>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-ico">✅</div>
+        <p>Usa siempre <code>select_related</code> en las vistas de listado cuando vayas a acceder a la relación O2O dentro de un bucle. La diferencia de rendimiento puede ser enorme con muchos registros.</p>
+      </div>
+    </section>
+
+    <!-- S10 Caso práctico -->
+    <section class="section" id="caso-perfil">
+      <div class="sec-label">Sección 10</div>
+      <h2><span class="n">10.</span>Caso práctico: el patrón Perfil de Usuario</h2>
+
+      <p>Este es el uso más habitual de <code>OneToOneField</code> en Django. El <code>User</code> de Django tiene campos básicos (username, email, password…), pero casi siempre necesitas más: avatar, bio, teléfono, redes sociales…</p>
+
+      <p>La solución elegante es crear un modelo <code>Perfil</code> vinculado con <code>OneToOneField</code> y crear el perfil automáticamente cada vez que se crea un usuario, usando <strong>señales</strong> (signals).</p>
+
+      <h3 id="señales">Creación automática con señales (<code>signals</code>)</h3>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">usuarios/signals.py</span>
+          <span class="code-lang">Python · Django Signals</span>
+        </div>
+        <pre><code><span class="kw">from</span> <span class="pl">django.db.models.signals</span> <span class="kw">import</span> <span class="pl">post_save</span>
+<span class="kw">from</span> <span class="pl">django.dispatch</span> <span class="kw">import</span> <span class="pl">receiver</span>
+<span class="kw">from</span> <span class="pl">django.contrib.auth.models</span> <span class="kw">import</span> <span class="cl">User</span>
+<span class="kw">from</span> <span class="pl">.models</span> <span class="kw">import</span> <span class="cl">Perfil</span>
+
+
+<span class="dc">@receiver(post_save, sender=User)</span>
+<span class="kw">def</span> <span class="fn">crear_perfil_usuario</span><span class="pl">(sender, instance, created, **kwargs):</span>
+    <span class="st">"""Se ejecuta automáticamente DESPUÉS de guardar un User."""</span>
+    <span class="kw">if</span> <span class="pl">created:</span>
+        <span class="cm"># Solo al CREAR (no al actualizar) el usuario</span>
+        <span class="cl">Perfil</span><span class="op">.</span><span class="fn">objects.create</span><span class="pl">(usuario</span><span class="op">=</span><span class="pl">instance)</span>
+
+
+<span class="dc">@receiver(post_save, sender=User)</span>
+<span class="kw">def</span> <span class="fn">guardar_perfil_usuario</span><span class="pl">(sender, instance, **kwargs):</span>
+    <span class="st">"""Guarda el perfil cuando se guarda el usuario."""</span>
+    <span class="kw">try</span><span class="pl">:</span>
+        <span class="pl">instance</span><span class="op">.</span><span class="pl">perfil</span><span class="op">.</span><span class="fn">save</span><span class="pl">()</span>
+    <span class="kw">except</span> <span class="cl">Perfil</span><span class="op">.</span><span class="cl">DoesNotExist</span><span class="pl">:</span>
+        <span class="kw">pass</span></code></pre>
+      </div>
+
+      <p>Ahora debes registrar las señales en el archivo de configuración de la app:</p>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">usuarios/apps.py</span>
+          <span class="code-lang">Python</span>
+        </div>
+        <pre><code><span class="kw">from</span> <span class="pl">django.apps</span> <span class="kw">import</span> <span class="cl">AppConfig</span>
+
+
+<span class="kw">class</span> <span class="cl">UsuariosConfig</span><span class="pl">(</span><span class="cl">AppConfig</span><span class="pl">):</span>
+    <span class="pl">default_auto_field</span> <span class="op">=</span> <span class="st">'django.db.models.BigAutoField'</span>
+    <span class="pl">name</span> <span class="op">=</span> <span class="st">'usuarios'</span>
+
+    <span class="kw">def</span> <span class="fn">ready</span><span class="pl">(self):</span>
+        <span class="cm"># Importar aquí para registrar las señales al arrancar Django</span>
+        <span class="kw">import</span> <span class="pl">usuarios.signals</span>  <span class="cm"># noqa: F401</span></code></pre>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-ico">✅</div>
+        <p>Con las señales configuradas, cada vez que se cree un usuario (desde el Admin, desde una vista, desde el shell…), Django creará automáticamente su perfil vacío. ¡No tienes que acordarte de hacerlo manualmente!</p>
+      </div>
+
+      <h3>Vista de edición de perfil</h3>
+      <p>Un patrón muy común es mostrar en la misma página el formulario del usuario y el de su perfil:</p>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">usuarios/views.py</span>
+          <span class="code-lang">Python · Django Views</span>
+        </div>
+        <pre><code><span class="kw">from</span> <span class="pl">django.contrib.auth.decorators</span> <span class="kw">import</span> <span class="pl">login_required</span>
+<span class="kw">from</span> <span class="pl">django.shortcuts</span> <span class="kw">import</span> <span class="pl">render, redirect</span>
+<span class="kw">from</span> <span class="pl">.forms</span> <span class="kw">import</span> <span class="cl">UserForm</span><span class="pl">, PerfilForm</span>
+
+
+<span class="dc">@login_required</span>
+<span class="kw">def</span> <span class="fn">editar_perfil</span><span class="pl">(request):</span>
+    <span class="kw">if</span> <span class="pl">request</span><span class="op">.</span><span class="pl">method</span> <span class="op">==</span> <span class="st">'POST'</span><span class="pl">:</span>
+        <span class="cm"># Formulario del User (datos básicos)</span>
+        <span class="pl">user_form</span>   <span class="op">=</span> <span class="cl">UserForm</span><span class="pl">(request</span><span class="op">.</span><span class="pl">POST</span><span class="pl">, instance</span><span class="op">=</span><span class="pl">request</span><span class="op">.</span><span class="pl">user)</span>
+        <span class="cm"># Formulario del Perfil (datos extra)</span>
+        <span class="pl">perfil_form</span> <span class="op">=</span> <span class="cl">PerfilForm</span><span class="pl">(</span>
+            <span class="pl">request</span><span class="op">.</span><span class="pl">POST</span><span class="pl">,</span>
+            <span class="pl">request</span><span class="op">.</span><span class="pl">FILES</span><span class="pl">,</span>             <span class="cm"># para el avatar (ImageField)</span>
+            <span class="pl">instance</span><span class="op">=</span><span class="pl">request</span><span class="op">.</span><span class="pl">user</span><span class="op">.</span><span class="pl">perfil</span>
+        <span class="pl">)</span>
+        <span class="kw">if</span> <span class="pl">user_form</span><span class="op">.</span><span class="fn">is_valid</span><span class="pl">()</span> <span class="kw">and</span> <span class="pl">perfil_form</span><span class="op">.</span><span class="fn">is_valid</span><span class="pl">():</span>
+            <span class="pl">user_form</span><span class="op">.</span><span class="fn">save</span><span class="pl">()</span>
+            <span class="pl">perfil_form</span><span class="op">.</span><span class="fn">save</span><span class="pl">()</span>
+            <span class="kw">return</span> <span class="fn">redirect</span><span class="pl">(</span><span class="st">'mi_perfil'</span><span class="pl">)</span>
+    <span class="kw">else</span><span class="pl">:</span>
+        <span class="pl">user_form</span>   <span class="op">=</span> <span class="cl">UserForm</span><span class="pl">(instance</span><span class="op">=</span><span class="pl">request</span><span class="op">.</span><span class="pl">user)</span>
+        <span class="pl">perfil_form</span> <span class="op">=</span> <span class="cl">PerfilForm</span><span class="pl">(instance</span><span class="op">=</span><span class="pl">request</span><span class="op">.</span><span class="pl">user</span><span class="op">.</span><span class="pl">perfil</span><span class="pl">)</span>
+
+    <span class="kw">return</span> <span class="fn">render</span><span class="pl">(request,</span> <span class="st">'editar_perfil.html'</span><span class="pl">, {</span>
+        <span class="st">'user_form'</span><span class="pl">:   user_form</span><span class="pl">,</span>
+        <span class="st">'perfil_form'</span><span class="pl">: perfil_form</span><span class="pl">,</span>
+    <span class="pl">})</span></code></pre>
+      </div>
+    </section>
+
+    <!-- S11 Forms -->
+    <section class="section" id="formularios">
+      <div class="sec-label">Sección 11</div>
+      <h2><span class="n">11.</span>Formularios con <code>OneToOneField</code></h2>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">usuarios/forms.py</span>
+          <span class="code-lang">Python · Django Forms</span>
+        </div>
+        <pre><code><span class="kw">from</span> <span class="pl">django</span> <span class="kw">import</span> <span class="pl">forms</span>
+<span class="kw">from</span> <span class="pl">django.contrib.auth.models</span> <span class="kw">import</span> <span class="cl">User</span>
+<span class="kw">from</span> <span class="pl">.models</span> <span class="kw">import</span> <span class="cl">Perfil</span>
+
+
+<span class="kw">class</span> <span class="cl">UserForm</span><span class="pl">(</span><span class="cl">forms.ModelForm</span><span class="pl">):</span>
+    <span class="st">"""Formulario para editar datos básicos del User."""</span>
+    <span class="kw">class</span> <span class="cl">Meta</span><span class="pl">:</span>
+        <span class="pl">model</span>  <span class="op">=</span> <span class="cl">User</span>
+        <span class="pl">fields</span> <span class="op">=</span> <span class="pl">[</span><span class="st">'first_name'</span><span class="pl">,</span> <span class="st">'last_name'</span><span class="pl">,</span> <span class="st">'email'</span><span class="pl">]</span>
+
+
+<span class="kw">class</span> <span class="cl">PerfilForm</span><span class="pl">(</span><span class="cl">forms.ModelForm</span><span class="pl">):</span>
+    <span class="st">"""Formulario para editar el Perfil (datos extra)."""</span>
+    <span class="kw">class</span> <span class="cl">Meta</span><span class="pl">:</span>
+        <span class="pl">model</span>  <span class="op">=</span> <span class="cl">Perfil</span>
+        <span class="cm"># Excluimos el campo 'usuario' porque ya lo tenemos del request</span>
+        <span class="pl">exclude</span> <span class="op">=</span> <span class="pl">[</span><span class="st">'usuario'</span><span class="pl">]</span>
+        <span class="pl">widgets</span> <span class="op">=</span> <span class="pl">{</span>
+            <span class="st">'bio'</span><span class="pl">: forms</span><span class="op">.</span><span class="fn">Textarea</span><span class="pl">(attrs</span><span class="op">=</span><span class="pl">{</span><span class="st">'rows'</span><span class="pl">: </span><span class="nu">4</span><span class="pl">}),</span>
+            <span class="st">'fecha_nac'</span><span class="pl">: forms</span><span class="op">.</span><span class="fn">DateInput</span><span class="pl">(attrs</span><span class="op">=</span><span class="pl">{</span><span class="st">'type'</span><span class="pl">: </span><span class="st">'date'</span><span class="pl">}),</span>
+        <span class="pl">}</span></code></pre>
+      </div>
+    </section>
+
+    <!-- S12 Admin -->
+    <section class="section" id="admin">
+      <div class="sec-label">Sección 12</div>
+      <h2><span class="n">12.</span>Django Admin con <code>OneToOneField</code></h2>
+
+      <p>El Admin de Django también funciona muy bien con relaciones O2O. Puedes mostrar el perfil directamente dentro del formulario del usuario usando un <code>StackedInline</code>:</p>
+
+      <div class="code-wrap">
+        <div class="code-header">
+          <div class="code-dots"><i></i><i></i><i></i></div>
+          <span class="code-file">usuarios/admin.py</span>
+          <span class="code-lang">Python · Django Admin</span>
+        </div>
+        <pre><code><span class="kw">from</span> <span class="pl">django.contrib</span> <span class="kw">import</span> <span class="pl">admin</span>
+<span class="kw">from</span> <span class="pl">django.contrib.auth.admin</span> <span class="kw">import</span> <span class="cl">UserAdmin</span>
+<span class="kw">from</span> <span class="pl">django.contrib.auth.models</span> <span class="kw">import</span> <span class="cl">User</span>
+<span class="kw">from</span> <span class="pl">.models</span> <span class="kw">import</span> <span class="cl">Perfil</span>
+
+
+<span class="kw">class</span> <span class="cl">PerfilInline</span><span class="pl">(</span><span class="cl">admin.StackedInline</span><span class="pl">):</span>
+    <span class="st">"""El perfil aparece integrado en el formulario del User."""</span>
+    <span class="pl">model</span>         <span class="op">=</span> <span class="cl">Perfil</span>
+    <span class="pl">can_delete</span>    <span class="op">=</span> <span class="kw">False</span>   <span class="cm"># no permitir borrar el perfil desde aquí</span>
+    <span class="pl">verbose_name_plural</span> <span class="op">=</span> <span class="st">'Perfil'</span>
+    <span class="pl">fields</span>        <span class="op">=</span> <span class="pl">[</span><span class="st">'bio'</span><span class="pl">,</span> <span class="st">'ciudad'</span><span class="pl">,</span> <span class="st">'telefono'</span><span class="pl">,</span> <span class="st">'sitio_web'</span><span class="pl">,</span> <span class="st">'fecha_nac'</span><span class="pl">]</span>
+
+
+<span class="kw">class</span> <span class="cl">UserConPerfilAdmin</span><span class="pl">(</span><span class="cl">UserAdmin</span><span class="pl">):</span>
+    <span class="pl">inlines</span> <span class="op">=</span> <span class="pl">[</span><span class="cl">PerfilInline</span><span class="pl">]</span>
+
+    <span class="kw">def</span> <span class="fn">get_inline_instances</span><span class="pl">(self, request, obj</span><span class="op">=</span><span class="kw">None</span><span class="pl">):</span>
+        <span class="cm"># No mostrar el inline al crear un nuevo usuario</span>
+        <span class="kw">if</span> <span class="kw">not</span> <span class="pl">obj:</span>
+            <span class="kw">return</span> <span class="pl">[]</span>
+        <span class="kw">return</span> <span class="fn">super</span><span class="pl">()</span><span class="op">.</span><span class="fn">get_inline_instances</span><span class="pl">(request, obj)</span>
+
+
+<span class="cm"># Reemplazamos el UserAdmin por defecto con el nuestro</span>
+<span class="pl">admin</span><span class="op">.</span><span class="pl">site</span><span class="op">.</span><span class="fn">unregister</span><span class="pl">(User)</span>
+<span class="pl">admin</span><span class="op">.</span><span class="pl">site</span><span class="op">.</span><span class="fn">register</span><span class="pl">(User, UserConPerfilAdmin)</span>
+
+
+<span class="cm"># También registramos Perfil por separado (por si se necesita)</span>
+<span class="dc">@admin.register(Perfil)</span>
+<span class="kw">class</span> <span class="cl">PerfilAdmin</span><span class="pl">(</span><span class="cl">admin.ModelAdmin</span><span class="pl">):</span>
+    <span class="pl">list_display</span>        <span class="op">=</span> <span class="pl">[</span><span class="st">'usuario'</span><span class="pl">,</span> <span class="st">'ciudad'</span><span class="pl">,</span> <span class="st">'telefono'</span><span class="pl">]</span>
+    <span class="pl">search_fields</span>       <span class="op">=</span> <span class="pl">[</span><span class="st">'usuario__username'</span><span class="pl">,</span> <span class="st">'ciudad'</span><span class="pl">]</span>
+    <span class="pl">list_select_related</span> <span class="op">=</span> <span class="pl">[</span><span class="st">'usuario'</span><span class="pl">]</span>
+    <span class="pl">raw_id_fields</span>       <span class="op">=</span> <span class="pl">[</span><span class="st">'usuario'</span><span class="pl">]</span></code></pre>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-ico">✅</div>
+        <p>Usar <code>StackedInline</code> (en vez de <code>TabularInline</code>) para un O2O tiene sentido porque solo hay un perfil por usuario. <code>StackedInline</code> muestra los campos en un formato más expandido y cómodo.</p>
+      </div>
+    </section>
+
+    <!-- S13 Errores -->
+    <section class="section" id="errores">
+      <div class="sec-label">Sección 13</div>
+      <h2><span class="n">13.</span>Errores comunes y cómo evitarlos</h2>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-n warn">!</div>
+          <div class="step-body">
+            <h4 class="warn">No proteger el acceso al objeto relacionado</h4>
+            <p>Acceder a <code>user.perfil</code> sin <code>try/except</code> cuando el perfil puede no existir. Siempre protege el acceso o garantiza la existencia del perfil (con señales o <code>get_or_create</code>).</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n warn">!</div>
+          <div class="step-body">
+            <h4 class="warn">Confundir el acceso inverso con un Manager</h4>
+            <p>En O2O, <code>user.perfil</code> devuelve el objeto directamente (no un Manager). No uses <code>user.perfil.all()</code> ni <code>user.perfil.first()</code>. Eso es para <code>ForeignKey</code>.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n warn">!</div>
+          <div class="step-body">
+            <h4 class="warn">Usar O2O cuando necesitas FK</h4>
+            <p>Si un usuario puede tener varias direcciones, varias fotos, varios pedidos… ¡eso no es O2O! Usa <code>ForeignKey</code>. O2O es solo para la relación absolutamente exclusiva.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n warn">!</div>
+          <div class="step-body">
+            <h4 class="warn">Olvidar registrar las señales</h4>
+            <p>Si defines señales en <code>signals.py</code> pero no las importas en <code>apps.py</code> dentro del método <code>ready()</code>, nunca se ejecutarán. Es un error muy silencioso y difícil de detectar.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n warn">!</div>
+          <div class="step-body">
+            <h4 class="warn">No usar <code>select_related</code> en bucles</h4>
+            <p>Como con FK, si accedes al objeto relacionado dentro de un bucle sin <code>select_related</code>, estarás generando una query por cada iteración. El problema N+1 afecta igual a O2O.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- S14 Buenas prácticas -->
+    <section class="section" id="buenas-practicas">
+      <div class="sec-label">Sección 14</div>
+      <h2><span class="n">14.</span>Buenas prácticas</h2>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-n num">1</div>
+          <div class="step-body">
+            <h4>Define siempre <code>related_name</code> con nombre singular</h4>
+            <p>A diferencia de FK (donde usas plural, como <code>'posts'</code>), en O2O usa singular: <code>related_name='perfil'</code>, <code>related_name='expediente'</code>. Es más natural porque el acceso devuelve un único objeto.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n num">2</div>
+          <div class="step-body">
+            <h4>Usa señales para garantizar la existencia del hijo</h4>
+            <p>Si el objeto hijo siempre debe existir junto al padre, crea el hijo automáticamente con una señal <code>post_save</code>. Así nunca tendrás que comprobar si existe.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n num">3</div>
+          <div class="step-body">
+            <h4>Protege siempre el acceso inverso</h4>
+            <p>Si no puedes garantizar que el objeto hijo siempre existe, usa <code>try/except</code>, <code>hasattr()</code> o <code>filter().first()</code>. Nunca accedas directamente sin protección.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n num">4</div>
+          <div class="step-body">
+            <h4>Usa <code>select_related</code> en vistas de listado</h4>
+            <p>En cualquier vista que liste objetos y necesite datos del modelo relacionado, usa siempre <code>select_related</code> para evitar el problema N+1.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n num">5</div>
+          <div class="step-body">
+            <h4>Coloca el <code>OneToOneField</code> en el modelo "extensión"</h4>
+            <p>El campo siempre va en el modelo secundario (el "hijo"), no en el principal. El <code>Perfil</code> tiene la FK al <code>User</code>, no al revés. Así el modelo principal queda limpio.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n num">6</div>
+          <div class="step-body">
+            <h4>Considera <code>AbstractUser</code> para casos complejos</h4>
+            <p>Si necesitas añadir muchos campos al usuario o cambiar su comportamiento profundamente, considera extender <code>AbstractUser</code> en vez de usar O2O. Es más potente, pero más complejo y hay que definirlo al inicio del proyecto.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr>
+
+    <!-- QUIZ -->
+    <section class="section" id="quiz">
+      <div class="sec-label">Sección 15</div>
+      <h2><span class="n">15.</span>Mini Quiz de Comprobación</h2>
+      <p>¿Cuánto has aprendido sobre relaciones One-to-One? ¡Compruébalo!</p>
+
+      <div class="quiz">
+        <div class="quiz-hd">🧠 Test Rápido — One-to-One</div>
+
+        <div class="quiz-q">
+          <p><strong>1.</strong> ¿Cuál es la diferencia principal entre <code>OneToOneField</code> y <code>ForeignKey</code> a nivel de base de datos?</p>
+          <label><input type="radio" name="q1" value="a"> <code>OneToOneField</code> crea una tabla intermedia extra</label>
+          <label><input type="radio" name="q1" value="b"> <code>OneToOneField</code> añade una restricción <code>UNIQUE</code> a la columna FK</label>
+          <label><input type="radio" name="q1" value="c"> <code>OneToOneField</code> no crea una columna FK, usa una tabla aparte</label>
+        </div>
+
+        <div class="quiz-q">
+          <p><strong>2.</strong> Si accedes a <code>user.perfil</code> y ese usuario no tiene perfil, ¿qué ocurre?</p>
+          <label><input type="radio" name="q2" value="a"> Devuelve <code>None</code> automáticamente</label>
+          <label><input type="radio" name="q2" value="b"> Devuelve un QuerySet vacío</label>
+          <label><input type="radio" name="q2" value="c"> Lanza la excepción <code>RelatedObjectDoesNotExist</code></label>
+        </div>
+
+        <div class="quiz-q">
+          <p><strong>3.</strong> ¿Cuál es el resultado de <code>user.perfil</code> cuando el usuario SÍ tiene perfil?</p>
+          <label><input type="radio" name="q3" value="a"> Un Manager al que hay que llamar con <code>.all()</code> o <code>.first()</code></label>
+          <label><input type="radio" name="q3" value="b"> Directamente el objeto <code>Perfil</code> (no un Manager)</label>
+          <label><input type="radio" name="q3" value="c"> Una lista de Python con el perfil dentro</label>
+        </div>
+
+        <div class="quiz-q">
+          <p><strong>4.</strong> ¿Qué herramienta de Django usarías para crear el perfil automáticamente cada vez que se crea un usuario?</p>
+          <label><input type="radio" name="q4" value="a"> Un método <code>save()</code> personalizado en el modelo <code>User</code></label>
+          <label><input type="radio" name="q4" value="b"> Una señal (<em>signal</em>) <code>post_save</code> conectada al modelo <code>User</code></label>
+          <label><input type="radio" name="q4" value="c"> Un <code>ForeignKey</code> en sentido inverso</label>
+        </div>
+
+        <div class="quiz-q">
+          <p><strong>5.</strong> ¿Cuál es la forma más segura de obtener el perfil de un usuario que puede o no tener perfil?</p>
+          <label><input type="radio" name="q5" value="a"> <code>user.perfil</code> directamente</label>
+          <label><input type="radio" name="q5" value="b"> <code>Perfil.objects.filter(usuario=user).first()</code></label>
+          <label><input type="radio" name="q5" value="c"> <code>user.perfil.all().first()</code></label>
+        </div>
+
+        <div class="quiz-q">
+          <p><strong>6.</strong> Tienes una lista de 100 perfiles y quieres mostrar el username de cada usuario. ¿Cuál es la forma eficiente?</p>
+          <label><input type="radio" name="q6" value="a"> <code>Perfil.objects.all()</code> y dentro del bucle <code>p.usuario.username</code></label>
+          <label><input type="radio" name="q6" value="b"> <code>Perfil.objects.prefetch_related('usuario')</code></label>
+          <label><input type="radio" name="q6" value="c"> <code>Perfil.objects.select_related('usuario')</code> y dentro del bucle <code>p.usuario.username</code></label>
+        </div>
+
+        <button class="quiz-btn" onclick="checkQuiz()">Comprobar respuestas ✓</button>
+        <div class="quiz-result" id="quiz-result"></div>
+      </div>
+    </section>
+
+    <!-- RESUMEN -->
+    <section class="section" id="resumen">
+      <div class="sec-label">Sección 16</div>
+      <h2><span class="n">16.</span>Resumen final</h2>
+
+      <p>Has completado la guía de relaciones One-to-One en Django. Aquí tienes un repaso visual de los conceptos esenciales:</p>
+
+      <div class="sum-grid">
+        <div class="sum-card">
+          <div class="sum-ico">⬡</div>
+          <h4>OneToOneField</h4>
+          <p>Como un ForeignKey pero con UNIQUE en la columna. Un padre = máximo un hijo.</p>
+        </div>
+        <div class="sum-card">
+          <div class="sum-ico">🔒</div>
+          <h4>Restricción UNIQUE</h4>
+          <p>La BD garantiza que no puede haber dos hijos para el mismo padre. Django lanza <code>IntegrityError</code> si lo intentas.</p>
+        </div>
+        <div class="sum-card">
+          <div class="sum-ico">↩️</div>
+          <h4>Acceso inverso directo</h4>
+          <p><code>user.perfil</code> devuelve el objeto directamente, no un Manager. No uses <code>.all()</code>.</p>
+        </div>
+        <div class="sum-card">
+          <div class="sum-ico">🚨</div>
+          <h4>RelatedObjectDoesNotExist</h4>
+          <p>Si el hijo no existe, el acceso inverso lanza esta excepción. Protege siempre el acceso.</p>
+        </div>
+        <div class="sum-card">
+          <div class="sum-ico">📡</div>
+          <h4>Signals (señales)</h4>
+          <p>Usa <code>post_save</code> para crear automáticamente el hijo cuando se crea el padre.</p>
+        </div>
+        <div class="sum-card">
+          <div class="sum-ico">⚡</div>
+          <h4>select_related</h4>
+          <p>Esencial para evitar N+1 queries al acceder al objeto relacionado en bucles.</p>
+        </div>
+        <div class="sum-card">
+          <div class="sum-ico">🪪</div>
+          <h4>Patrón Perfil</h4>
+          <p>El uso más común: extender <code>auth.User</code> con campos extra sin modificar el modelo base.</p>
+        </div>
+        <div class="sum-card">
+          <div class="sum-ico">💥</div>
+          <h4>on_delete=CASCADE</h4>
+          <p>Lo más habitual: si el padre desaparece, el hijo tampoco tiene sentido y se borra con él.</p>
+        </div>
+      </div>
+
+      <div class="callout tip" style="margin-top:32px">
+        <div class="callout-ico">🚀</div>
+        <p><strong>¿Cuál es el siguiente paso?</strong> Practica creando un sistema de perfiles de usuario en tu propio proyecto Django. Configura las señales, edita el Admin con el inline, y construye la vista de edición de perfil. ¡Es el proyecto perfecto para consolidar todo lo aprendido sobre relaciones en Django!</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  Creado con ❤️ para el aprendizaje de Django &nbsp;·&nbsp; <strong>One-to-One · OneToOneField</strong> &nbsp;·&nbsp; Curso de Informática
+</footer>
+
+<script>
+  // Progress bar
+  const bar = document.getElementById('progress-bar');
+  window.addEventListener('scroll', () => {
+    const h = document.documentElement;
+    bar.style.width = (h.scrollTop / (h.scrollHeight - h.clientHeight) * 100) + '%';
+  });
+
+  // Sidebar active link
+  const sections = document.querySelectorAll('section[id]');
+  const links    = document.querySelectorAll('.sidebar nav a');
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = document.querySelector(`.sidebar nav a[href="#${e.target.id}"]`);
+        if (a) a.classList.add('active');
+      }
+    });
+  }, { threshold: 0.25 }).observe && sections.forEach(s =>
+    new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          links.forEach(l => l.classList.remove('active'));
+          const a = document.querySelector(`.sidebar nav a[href="#${e.target.id}"]`);
+          if (a) a.classList.add('active');
+        }
+      });
+    }, { threshold: 0.25 }).observe(s)
+  );
+
+  // Quiz
+  function checkQuiz() {
+    const answers = { q1:'b', q2:'c', q3:'b', q4:'b', q5:'b', q6:'c' };
+    let correct = 0;
+    const total = Object.keys(answers).length;
+    for (const [q, ans] of Object.entries(answers)) {
+      const sel = document.querySelector(`input[name="${q}"]:checked`);
+      if (sel && sel.value === ans) correct++;
+    }
+    const res = document.getElementById('quiz-result');
+    res.style.display = 'block';
+    if (correct === total) {
+      res.className = 'quiz-result ok';
+      res.textContent = `✅ ¡Perfecto! ${correct}/${total} correctas. ¡Dominas las relaciones One-to-One en Django!`;
+    } else if (correct >= 4) {
+      res.className = 'quiz-result mid';
+      res.textContent = `👍 Muy bien: ${correct}/${total} correctas. Repasa las secciones de los fallos para afianzarlo.`;
+    } else {
+      res.className = 'quiz-result err';
+      res.textContent = `📚 ${correct}/${total} correctas. Te recomendamos repasar la lección con calma. ¡Tú puedes!`;
+    }
+  }
+</script>
+</body>
+</html>
